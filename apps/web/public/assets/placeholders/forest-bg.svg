@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <!-- Sky -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6fb4e0"/>
+      <stop offset="55%" stop-color="#a8d6ec"/>
+      <stop offset="100%" stop-color="#f0d9a8"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b5834"/>
+      <stop offset="100%" stop-color="#1f2e1a"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ffd18a" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffd18a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#sky)"/>
+
+  <!-- Sun -->
+  <circle cx="1150" cy="230" r="260" fill="url(#sun)"/>
+  <circle cx="1150" cy="230" r="60" fill="#fff4d6"/>
+
+  <!-- Distant mountains -->
+  <polygon points="0,520 160,420 300,500 450,390 620,500 780,430 940,510 1120,410 1300,500 1460,440 1600,520 1600,620 0,620" fill="#4a6a7a" opacity="0.7"/>
+  <polygon points="0,560 200,490 360,560 540,460 720,560 880,500 1060,570 1220,480 1400,570 1600,510 1600,640 0,640" fill="#3a556a" opacity="0.6"/>
+
+  <!-- Ground -->
+  <rect y="580" width="1600" height="320" fill="url(#ground)"/>
+
+  <!-- Foreground trees left -->
+  <g fill="#1a2e16">
+    <polygon points="40,580 120,200 200,580"/>
+    <polygon points="140,580 210,260 280,580"/>
+    <polygon points="230,580 290,320 350,580"/>
+  </g>
+  <g fill="#13220f">
+    <rect x="108" y="520" width="20" height="80"/>
+    <rect x="198" y="540" width="18" height="60"/>
+    <rect x="278" y="540" width="18" height="60"/>
+  </g>
+
+  <!-- Foreground trees right -->
+  <g fill="#1a2e16">
+    <polygon points="1600,580 1520,180 1440,580"/>
+    <polygon points="1500,580 1430,250 1360,580"/>
+    <polygon points="1400,580 1340,310 1280,580"/>
+  </g>
+  <g fill="#13220f">
+    <rect x="1512" y="520" width="20" height="80"/>
+    <rect x="1422" y="540" width="18" height="60"/>
+    <rect x="1332" y="540" width="18" height="60"/>
+  </g>
+
+  <!-- Mid-ground small trees -->
+  <g fill="#233d1f">
+    <polygon points="380,600 420,460 460,600"/>
+    <polygon points="1140,600 1180,460 1220,600"/>
+    <polygon points="1220,610 1250,500 1280,610"/>
+  </g>
+
+  <!-- Grass blades hint -->
+  <g stroke="#2d4f28" stroke-width="2" opacity="0.6">
+    <path d="M100 650 q4 -10 8 0"/>
+    <path d="M300 670 q3 -8 6 0"/>
+    <path d="M500 660 q4 -10 8 0"/>
+    <path d="M800 680 q3 -8 6 0"/>
+    <path d="M1100 660 q4 -10 8 0"/>
+    <path d="M1400 650 q3 -8 6 0"/>
+  </g>
+
+  <!-- Light haze at horizon -->
+  <rect y="500" width="1600" height="100" fill="#ffe7c0" opacity="0.08"/>
+</svg>

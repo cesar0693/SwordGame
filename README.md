@@ -166,16 +166,47 @@ Chaque phase est un lot livrable indépendant. Les phases **0** et **1** sont po
 - [x] Auth JWT (register / login / refresh / me).
 - [x] Écran "feu de camp" (hub) placeholder.
 
-### Phase 1 — Héros & personnalisation
-- Création d'un héros (nom, classe : Guerrier / Mage / Rôdeur, apparence).
-- Stats de base par classe (HP, MP, ATK, DEF, SPD, CRIT%, CRIT_FAIL%, DODGE%).
-- Écran "Feu de camp" avec portrait du héros, stats, et navigation.
+### Phase 1 — Scène du feu de camp & héros
+- [x] Scène immersive plein écran : forêt + ciel comme décor, feu de camp animé au centre (flamme qui vacille), héros placé à côté qui regarde le feu.
+- [x] HUD : nom / classe / niveau / barre d'XP en haut-gauche.
+- [x] Dock d'actions en bas ouvrant des panneaux modaux **par-dessus** la scène (fenêtres centrées, scène visible derrière).
+- [x] Panneau "Profil" complet (stats détaillées).
+- [x] Création du héros (nom, classe Guerrier/Mage/Rôdeur, apparence) quand aucun héros n'existe, dans le même style visuel.
+- [x] Tous les assets sont des **placeholders SVG** remplaçables sans toucher au code (voir `apps/web/public/assets/placeholders/`).
 
-### Phase 2 — Ressources & camp
-- Ressources : `WOOD`, `IRON`, `LEATHER`, `HERB`, `GOLD`, `GEM`.
-- Bâtiments : `WOODCUTTER`, `MINE`, `TANNERY`, `HERBALIST`, `FORGE`, `ALTAR`, `TENT`.
-- Génération passive : taux = f(niveau du bâtiment).
-- File d'upgrade avec `startAt / finishAt`, un seul upgrade en parallèle au démarrage.
+### Phase 2 — Compagnons du camp (refonte "bâtiments")
+Au lieu de bâtiments, on débloque **des compagnons** qui s'installent autour du feu et travaillent pour le héros. Chacun a un rôle économique, un niveau, un équipement et des **arbitrages forts** (on ne peut pas tout maximiser).
+
+| Compagnon | Rôle principal | Inputs | Outputs |
+|-----------|----------------|--------|---------|
+| Mineur | extrait les minerais | outils (pioche) | `IRON`, puis `COPPER`, `SILVER`, `GOLD`, `GEM` débloqués par paliers |
+| Bûcheron | coupe le bois | outils (hache) | `WOOD`, puis essences spéciales |
+| Paysan | cultive les champs | graines (loot) | `WHEAT`, `FLOUR` |
+| Récolteur | cueille les plantes | — | `HERB`, herbes spéciales |
+| Alchimiste | craft potions temporaires | `HERB` + loot | potions heal/mana/buff (durée limitée) |
+| Boulanger | cuisine pour la vie max | `FLOUR` du Paysan | pain (regen HP hors combat, +HP max temporaire) |
+| Forgeron | forge/améliore l'équipement | `IRON`/`WOOD`/`LEATHER` | armes, armures, upgrade d'items |
+
+**Arbitrages (le cœur du design)** : à chaque montée de niveau d'un compagnon, le joueur reçoit **un point de spécialisation** et doit choisir **une seule** voie parmi plusieurs mutuellement exclusives. Exemple pour le Mineur niveau 2 :
+
+- **Voie A** — Débloquer une nouvelle ressource (`COPPER`) mais rythme de récolte inchangé.
+- **Voie B** — +25 % de quantité par cycle sur la ressource actuelle.
+- **Voie C** — −20 % de temps entre deux cycles.
+- **Voie D** — Chance (+10 %) de trouver un minerai rare.
+
+Ces voies ne sont **pas cumulatives** pour un même palier, et les paliers suivants proposent d'autres arbitrages (ex : efficacité vs endurance vs diversité). Le joueur doit donc construire une économie cohérente, pas une économie "tout-optimal".
+
+**Boucle économique** :
+- Un compagnon travaille en continu tant qu'il a ses consommables (énergie/outils).
+- Les outils s'usent : les améliorer coûte des ressources (économie circulaire).
+- Le héros peut ramener du loot de mission qui sert de catalyseur pour des recettes (l'Alchimiste a besoin d'un œil de gobelin rare pour la potion X…).
+
+**Modèle de données** (à implémenter en Phase 2, ajouté au schéma de façon additive) :
+- `Companion` : type, niveau, état (idle / working / waiting_for_input), barre de progression courante.
+- `CompanionSpec` : pour chaque compagnon, la liste des arbitrages choisis par palier.
+- `CompanionJob` : cycle en cours (`startAt`, `finishAt`, `expectedOutput`).
+
+Les timers réutilisent exactement le pattern `startAt / finishAt` déjà posé dans le schéma Prisma pour `Building` (table qui servira désormais de base à `Companion`, ou sera renommée par une migration dédiée).
 
 ### Phase 3 — Inventaire & équipement
 - Items : `WEAPON`, `OFFHAND`, `HELMET`, `ARMOR`, `BOOTS`, `RING`, `AMULET`.
