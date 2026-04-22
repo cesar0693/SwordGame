@@ -1,0 +1,277 @@
+// SwordGame - Prisma schema
+// Covers phases 1-7 of the roadmap so future migrations stay additive.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------------------------------------------
+// Auth
+// --------------------------------------------------------------------------
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  username         String   @unique
+  passwordHash     String
+  refreshTokenHash String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  hero Hero?
+}
+
+// --------------------------------------------------------------------------
+// Hero
+// --------------------------------------------------------------------------
+
+enum HeroClass {
+  WARRIOR
+  MAGE
+  RANGER
+}
+
+model Hero {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name              String    @unique
+  heroClass         HeroClass
+  level             Int       @default(1)
+  xp                Int       @default(0)
+  unallocatedPoints Int       @default(0)
+
+  // Base stats (equipment bonuses are added at read time)
+  hp                Int
+  mp                Int
+  attack            Int
+  defense           Int
+  speed             Int
+  critChance        Float
+  critFailChance    Float
+  dodgeChance       Float
+
+  // Appearance stored as JSON for flexibility
+  appearance        Json
+
+  // PvP rating (Phase 7)
+  pvpRating         Int       @default(1000)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  resources   Resource[]
+  buildings   Building[]
+  items       Item[]
+  missionRuns MissionRun[]
+  heroSpells  HeroSpell[]
+  dailyQuests DailyQuest[]
+  pvpAsAttacker PvpMatch[] @relation("PvpAttacker")
+  pvpAsDefender PvpMatch[] @relation("PvpDefender")
+}
+
+// --------------------------------------------------------------------------
+// Resources & buildings
+// --------------------------------------------------------------------------
+
+enum ResourceType {
+  WOOD
+  IRON
+  LEATHER
+  HERB
+  GOLD
+  GEM
+}
+
+model Resource {
+  id       String       @id @default(cuid())
+  heroId   String
+  hero     Hero         @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  type     ResourceType
+  amount   Int          @default(0)
+  // Timestamp of the last time production was collected into `amount`.
+  lastTickAt DateTime   @default(now())
+
+  @@unique([heroId, type])
+}
+
+enum BuildingType {
+  WOODCUTTER
+  MINE
+  TANNERY
+  HERBALIST
+  FORGE
+  ALTAR
+  TENT
+}
+
+model Building {
+  id                 String       @id @default(cuid())
+  heroId             String
+  hero               Hero         @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  type               BuildingType
+  level              Int          @default(0)
+  upgradeStartedAt   DateTime?
+  upgradeFinishesAt  DateTime?
+
+  @@unique([heroId, type])
+}
+
+// --------------------------------------------------------------------------
+// Items / equipment
+// --------------------------------------------------------------------------
+
+enum ItemSlot {
+  WEAPON
+  OFFHAND
+  HELMET
+  ARMOR
+  BOOTS
+  RING
+  AMULET
+}
+
+enum ItemRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+model Item {
+  id            String     @id @default(cuid())
+  heroId        String
+  hero          Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  name          String
+  slot          ItemSlot
+  rarity        ItemRarity
+  upgradeLevel  Int        @default(0)
+  bonuses       Json
+  equipped      Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+
+  @@index([heroId, slot, equipped])
+}
+
+// --------------------------------------------------------------------------
+// Missions & combat (PvE)
+// --------------------------------------------------------------------------
+
+model Mission {
+  id                String       @id @default(cuid())
+  code              String       @unique
+  name              String
+  description       String
+  minLevel          Int          @default(1)
+  durationSeconds   Int
+  enemyStats        Json
+  rewardXp          Int
+  rewardGold        Int
+  rewardLoot        Json         // drop table
+  createdAt         DateTime     @default(now())
+
+  runs              MissionRun[]
+}
+
+enum MissionStatus {
+  PENDING
+  COMPLETED
+  CLAIMED
+}
+
+model MissionRun {
+  id         String        @id @default(cuid())
+  heroId     String
+  hero       Hero          @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  missionId  String
+  mission    Mission       @relation(fields: [missionId], references: [id])
+  seed       String
+  startAt    DateTime      @default(now())
+  finishAt   DateTime
+  status     MissionStatus @default(PENDING)
+  report     Json?
+
+  @@index([heroId, status])
+}
+
+// --------------------------------------------------------------------------
+// Spells
+// --------------------------------------------------------------------------
+
+model Spell {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  name        String
+  description String
+  classLock   HeroClass?
+  mpCost      Int
+  cooldown    Int         // in turns
+  effect      Json
+
+  learnedBy   HeroSpell[]
+}
+
+model HeroSpell {
+  id        String   @id @default(cuid())
+  heroId    String
+  hero      Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  spellId   String
+  spell     Spell    @relation(fields: [spellId], references: [id])
+  equipped  Boolean  @default(false)
+  learnedAt DateTime @default(now())
+
+  @@unique([heroId, spellId])
+}
+
+// --------------------------------------------------------------------------
+// PvP
+// --------------------------------------------------------------------------
+
+enum PvpOutcome {
+  ATTACKER_WIN
+  DEFENDER_WIN
+}
+
+model PvpMatch {
+  id             String     @id @default(cuid())
+  attackerId     String
+  attacker       Hero       @relation("PvpAttacker", fields: [attackerId], references: [id], onDelete: Cascade)
+  defenderId     String
+  defender       Hero       @relation("PvpDefender", fields: [defenderId], references: [id], onDelete: Cascade)
+  seed           String
+  outcome        PvpOutcome
+  attackerRatingBefore Int
+  defenderRatingBefore Int
+  attackerRatingAfter  Int
+  defenderRatingAfter  Int
+  report         Json
+  playedAt       DateTime   @default(now())
+
+  @@index([attackerId, playedAt])
+  @@index([defenderId, playedAt])
+}
+
+// --------------------------------------------------------------------------
+// Daily quests
+// --------------------------------------------------------------------------
+
+model DailyQuest {
+  id         String   @id @default(cuid())
+  heroId     String
+  hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  code       String
+  progress   Int      @default(0)
+  target     Int
+  rewardJson Json
+  completed  Boolean  @default(false)
+  day        DateTime
+
+  @@unique([heroId, code, day])
+}
