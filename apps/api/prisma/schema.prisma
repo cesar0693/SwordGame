@@ -190,19 +190,29 @@ enum ItemRarity {
   LEGENDARY
 }
 
+enum ItemKind {
+  EQUIPMENT
+  CONSUMABLE
+}
+
 model Item {
-  id            String     @id @default(cuid())
-  heroId        String
-  hero          Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  name          String
-  slot          ItemSlot
-  rarity        ItemRarity
-  upgradeLevel  Int        @default(0)
-  bonuses       Json
-  equipped      Boolean    @default(false)
-  createdAt     DateTime   @default(now())
+  id               String     @id @default(cuid())
+  heroId           String
+  hero             Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  kind             ItemKind   @default(EQUIPMENT)
+  name             String
+  slot             ItemSlot?
+  rarity           ItemRarity
+  upgradeLevel     Int        @default(0)
+  bonuses          Json       @default("{}")
+  equipped         Boolean    @default(false)
+  stack            Int        @default(1)
+  effect           Json?
+  durationSeconds  Int?
+  createdAt        DateTime   @default(now())
 
   @@index([heroId, slot, equipped])
+  @@index([heroId, kind])
 }
 
 // --------------------------------------------------------------------------

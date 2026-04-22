@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { HeroesModule } from './heroes/heroes.module';
 import { ResourcesModule } from './resources/resources.module';
 import { CompanionsModule } from './companions/companions.module';
+import { ItemsModule } from './items/items.module';
 import { MarketModule } from './market/market.module';
 import { DailyModule } from './daily/daily.module';
 import { HealthController } from './health.controller';
@@ -19,6 +20,7 @@ import { HealthController } from './health.controller';
     HeroesModule,
     ResourcesModule,
     CompanionsModule,
+    ItemsModule,
     MarketModule,
     DailyModule,
   ],

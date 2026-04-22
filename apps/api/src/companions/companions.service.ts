@@ -8,7 +8,9 @@ import { Prisma } from '@prisma/client';
 import {
   COMPANION_CATALOG,
   COMPANION_ROLES,
+  FORGE_TIERS,
   OFFLINE_CYCLE_CAP,
+  toolRepairCost,
   type Companion,
   type CompanionRole,
   type CompanionSkillSpend,
@@ -18,6 +20,7 @@ import {
 } from '@swordgame/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
+import { ItemsService } from '../items/items.service';
 import {
   VALID_AXES,
   defaultTrackCode,
@@ -35,6 +38,7 @@ export class CompanionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resources: ResourcesService,
+    private readonly items: ItemsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -213,9 +217,15 @@ export class CompanionsService {
       const cycles = Math.max(1, Math.min(rawCycles, OFFLINE_CYCLE_CAP));
 
       const t = trackByCode(role, comp.activeTrack);
-      if (t && this.isResource(t.resource)) {
+      if (t && role === 'BLACKSMITH' && FORGE_TIERS[t.code]) {
+        // Forge tracks produce equipment items (one per cycle).
+        for (let i = 0; i < rt.effectiveAmount * cycles; i += 1) {
+          await this.items.generateForForgeTier(heroId, t.code, tx);
+        }
+      } else if (t && this.isResource(t.resource)) {
         await this.resources.add(heroId, t.resource, rt.effectiveAmount * cycles, tx);
       }
+      // Alchemist/Baker consumable outputs remain stubbed until Phase 4.
 
       // Durability wear per cycle (base 2)
       const wear = 2 * cycles;
@@ -269,6 +279,36 @@ export class CompanionsService {
       const updated = await tx.companion.update({
         where: { id: comp.id },
         data: { skillPointsUnspent: comp.skillPointsUnspent - 1 },
+        include: { spends: true },
+      });
+      return this.toDto(updated);
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Repair tools (IRON cost scaled to missing durability)
+  // -----------------------------------------------------------------------
+
+  async repairTools(heroId: string, role: CompanionRole): Promise<Companion> {
+    return this.prisma.$transaction(async (tx) => {
+      const comp = await tx.companion.findUnique({
+        where: { heroId_role: { heroId, role } },
+        include: { spends: true },
+      });
+      if (!comp) throw new NotFoundException('Companion not found');
+      if (comp.state === 'LOCKED') throw new ConflictException('Locked');
+      if (comp.state === 'WORKING')
+        throw new ConflictException('Cannot repair while working');
+      if (comp.toolDurability >= 100)
+        throw new BadRequestException('Tools already fully repaired');
+
+      const missing = 100 - comp.toolDurability;
+      const cost = toolRepairCost(missing);
+      await this.resources.add(heroId, 'IRON', -cost, tx);
+
+      const updated = await tx.companion.update({
+        where: { id: comp.id },
+        data: { toolDurability: 100 },
         include: { spends: true },
       });
       return this.toDto(updated);

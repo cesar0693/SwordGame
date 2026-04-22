@@ -103,7 +103,7 @@ export class ActionDockComponent {
     { id: 'camp',      label: 'Camp',       glyph: '⌂', hint: 'Compagnons, ressources et progression', available: true },
     { id: 'market',    label: 'Marché',     glyph: '⚖', hint: 'Acheter, vendre, enchérir', available: true },
     { id: 'dailies',   label: 'Journalier', glyph: '☀', hint: 'Récompense de connexion quotidienne', available: true },
-    { id: 'inventory', label: 'Sac',        glyph: '▣', hint: 'Inventaire & équipement (Phase 3)', available: false },
+    { id: 'inventory', label: 'Sac',        glyph: '▣', hint: 'Inventaire & équipement', available: true },
     { id: 'missions',  label: 'Missions',   glyph: '▶', hint: 'Combat PvE auto (Phase 4)',     available: false },
     { id: 'forge',     label: 'Forge',      glyph: '⚒', hint: 'Craft & upgrades (Phase 5)',    available: false },
     { id: 'spells',    label: 'Sorts',      glyph: '✦', hint: 'Apprentissage & équipement (Phase 6)', available: false },

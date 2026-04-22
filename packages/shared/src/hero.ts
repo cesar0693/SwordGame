@@ -27,7 +27,10 @@ export interface Hero {
   level: number;
   xp: number;
   xpToNext: number;
+  /** Base stats persisted on the hero (class + level-ups, no equipment). */
   stats: HeroStats;
+  /** Stats after adding equipped item bonuses. */
+  effectiveStats: HeroStats;
   unallocatedPoints: number;
   appearance: HeroAppearance;
   createdAt: string;

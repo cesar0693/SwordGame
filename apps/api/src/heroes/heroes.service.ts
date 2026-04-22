@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
 import { CompanionsService } from '../companions/companions.service';
+import { ItemsService } from '../items/items.service';
 import {
   BASE_STATS_BY_CLASS,
   xpForLevel,
@@ -26,6 +27,8 @@ export class HeroesService {
     private readonly resources: ResourcesService,
     @Inject(forwardRef(() => CompanionsService))
     private readonly companions: CompanionsService,
+    @Inject(forwardRef(() => ItemsService))
+    private readonly items: ItemsService,
   ) {}
 
   async create(
@@ -70,7 +73,7 @@ export class HeroesService {
 
   async getByUser(userId: string): Promise<Hero | null> {
     const hero = await this.prisma.hero.findUnique({ where: { userId } });
-    return hero ? this.toDto(hero) : null;
+    return hero ? await this.toDto(hero) : null;
   }
 
   async requireByUser(userId: string): Promise<Hero> {
@@ -79,8 +82,8 @@ export class HeroesService {
     return hero;
   }
 
-  private toDto(row: NonNullable<HeroRow>): Hero {
-    const stats: HeroStats = {
+  private async toDto(row: NonNullable<HeroRow>): Promise<Hero> {
+    const base: HeroStats = {
       hp: row.hp,
       mp: row.mp,
       attack: row.attack,
@@ -90,6 +93,8 @@ export class HeroesService {
       critFailChance: row.critFailChance,
       dodgeChance: row.dodgeChance,
     };
+    const bonuses = await this.items.effectiveBonuses(row.id);
+    const effective = this.items.applyBonusesTo(base, bonuses);
     return {
       id: row.id,
       userId: row.userId,
@@ -98,7 +103,8 @@ export class HeroesService {
       level: row.level,
       xp: row.xp,
       xpToNext: xpForLevel(row.level + 1),
-      stats,
+      stats: base,
+      effectiveStats: effective,
       unallocatedPoints: row.unallocatedPoints,
       appearance: row.appearance as unknown as HeroAppearance,
       createdAt: row.createdAt.toISOString(),

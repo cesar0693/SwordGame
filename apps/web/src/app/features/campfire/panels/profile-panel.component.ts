@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import type { Hero } from '@swordgame/shared';
+import type { Hero, HeroStats } from '@swordgame/shared';
 import { PanelComponent } from '../ui/panel.component';
+
+interface StatRow {
+  key: keyof HeroStats;
+  label: string;
+  pct?: boolean;
+}
 
 @Component({
   selector: 'sg-profile-panel',
@@ -9,19 +15,46 @@ import { PanelComponent } from '../ui/panel.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [
     `
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.4rem 1.25rem;
+      .header-line {
+        display: flex; align-items: baseline; justify-content: space-between;
+        margin-bottom: 0.75rem;
       }
-      .row {
-        display: flex; justify-content: space-between;
-        padding: 0.35rem 0;
+      .header-line .name { font-size: 1.2rem; font-weight: 700; }
+      .header-line .cls  { color: var(--fg-muted); font-size: 0.9rem; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      thead th {
+        text-align: right;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--fg-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.3rem 0.4rem;
+        border-bottom: 1px solid #3a2a18;
+      }
+      thead th:first-child { text-align: left; }
+      tbody td {
+        padding: 0.35rem 0.4rem;
         border-bottom: 1px dashed #3a2a18;
-        font-size: 0.92rem;
+        text-align: right;
       }
-      .row span { color: var(--fg-muted); }
-      .row b { color: var(--fg); }
+      tbody td:first-child {
+        text-align: left;
+        color: var(--fg-muted);
+      }
+      tbody td.bonus {
+        color: #8ec04a;
+      }
+      tbody td.bonus.zero { color: var(--fg-muted); opacity: 0.4; }
+      tbody td.eff {
+        color: var(--fg);
+        font-weight: 700;
+      }
 
       .xp { margin-top: 1rem; }
       .bar {
@@ -33,13 +66,6 @@ import { PanelComponent } from '../ui/panel.component';
         background: linear-gradient(90deg, #ff8a3d, #ffd28a);
       }
       .xp-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--fg-muted); margin-top: 0.3rem; }
-
-      .header-line {
-        display: flex; align-items: baseline; justify-content: space-between;
-        margin-bottom: 0.75rem;
-      }
-      .header-line .name { font-size: 1.2rem; font-weight: 700; }
-      .header-line .cls  { color: var(--fg-muted); font-size: 0.9rem; }
 
       .points {
         margin-top: 0.75rem; padding: 0.6rem 0.75rem;
@@ -55,16 +81,31 @@ import { PanelComponent } from '../ui/panel.component';
         <span class="cls">{{ className() }} · Niveau {{ hero().level }}</span>
       </div>
 
-      <div class="grid">
-        <div class="row"><span>Points de vie</span><b>{{ hero().stats.hp }}</b></div>
-        <div class="row"><span>Points de mana</span><b>{{ hero().stats.mp }}</b></div>
-        <div class="row"><span>Attaque</span><b>{{ hero().stats.attack }}</b></div>
-        <div class="row"><span>Défense</span><b>{{ hero().stats.defense }}</b></div>
-        <div class="row"><span>Vitesse</span><b>{{ hero().stats.speed }}</b></div>
-        <div class="row"><span>Critique</span><b>{{ pct(hero().stats.critChance) }}</b></div>
-        <div class="row"><span>Échec critique</span><b>{{ pct(hero().stats.critFailChance) }}</b></div>
-        <div class="row"><span>Esquive</span><b>{{ pct(hero().stats.dodgeChance) }}</b></div>
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Stat</th>
+            <th>Base</th>
+            <th>Bonus</th>
+            <th>Effectif</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row.key) {
+            @let base = hero().stats[row.key];
+            @let eff = hero().effectiveStats[row.key];
+            @let delta = eff - base;
+            <tr>
+              <td>{{ row.label }}</td>
+              <td>{{ format(base, row.pct) }}</td>
+              <td class="bonus" [class.zero]="delta === 0">
+                {{ delta === 0 ? '—' : (delta > 0 ? '+' : '') + format(delta, row.pct) }}
+              </td>
+              <td class="eff">{{ format(eff, row.pct) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
 
       <div class="xp">
         <div class="bar"><div [style.width.%]="xpPct()"></div></div>
@@ -85,8 +126,20 @@ export class ProfilePanelComponent {
   readonly hero = input.required<Hero>();
   readonly closed = output<void>();
 
-  protected pct(v: number): string {
-    return `${Math.round(v * 100)}%`;
+  protected readonly rows: StatRow[] = [
+    { key: 'hp', label: 'Points de vie' },
+    { key: 'mp', label: 'Points de mana' },
+    { key: 'attack', label: 'Attaque' },
+    { key: 'defense', label: 'Défense' },
+    { key: 'speed', label: 'Vitesse' },
+    { key: 'critChance', label: 'Critique', pct: true },
+    { key: 'critFailChance', label: 'Échec crit', pct: true },
+    { key: 'dodgeChance', label: 'Esquive', pct: true },
+  ];
+
+  protected format(value: number, pct?: boolean): string {
+    if (pct) return `${Math.round(value * 100)}%`;
+    return `${Math.round(value)}`;
   }
 
   protected xpPct(): number {

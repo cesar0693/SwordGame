@@ -55,6 +55,12 @@ export class CompanionsService {
     );
   }
 
+  async repair(role: CompanionRole): Promise<Companion> {
+    return this.patched(
+      await firstValueFrom(this.http.post<Companion>(`${this.base}/${role}/repair`, {})),
+    );
+  }
+
   private patched(c: Companion): Companion {
     this.companions.update((list) => list.map((x) => (x.id === c.id ? c : x)));
     return c;

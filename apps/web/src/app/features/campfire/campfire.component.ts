@@ -13,6 +13,7 @@ import { ProfilePanelComponent } from './panels/profile-panel.component';
 import { CampPanelComponent } from './panels/camp-panel.component';
 import { MarketPanelComponent } from './panels/market-panel.component';
 import { DailyClaimPanelComponent } from './panels/daily-claim-panel.component';
+import { InventoryPanelComponent } from './panels/inventory-panel.component';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -27,6 +28,7 @@ import { HeroCreationComponent } from './hero-creation.component';
     CampPanelComponent,
     MarketPanelComponent,
     DailyClaimPanelComponent,
+    InventoryPanelComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +102,9 @@ import { HeroCreationComponent } from './hero-creation.component';
           }
           @case ('dailies') {
             <sg-daily-claim-panel (closed)="closePanel()" />
+          }
+          @case ('inventory') {
+            <sg-inventory-panel (closed)="closePanel()" />
           }
         }
       } @else {

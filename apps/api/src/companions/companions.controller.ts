@@ -73,6 +73,12 @@ export class CompanionsController {
     );
   }
 
+  @Post(':role/repair')
+  async repair(@CurrentUser() user: JwtPayload, @Param('role') role: string) {
+    const hero = await this.requireHero(user.sub);
+    return this.companions.repairTools(hero.id, this.parseRole(role));
+  }
+
   private async requireHero(userId: string) {
     const hero = await this.heroes.getByUser(userId);
     if (!hero) throw new NotFoundException('Hero not found');

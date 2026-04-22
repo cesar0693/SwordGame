@@ -14,6 +14,7 @@ import {
   RESOURCE_LABELS,
   effectiveCycleSeconds,
   effectiveQuantity,
+  toolRepairCost,
   type Companion,
   type CompanionRole,
   type ResourceTrack,
@@ -210,10 +211,17 @@ import { SkillPickerComponent } from './skill-picker.component';
                 } @else {
                   <div class="actions">
                     <button type="button" class="primary"
-                            [disabled]="busy() === c.role"
+                            [disabled]="busy() === c.role || c.toolDurability <= 0"
                             (click)="start(c.role)">
                       Démarrer
                     </button>
+                    @if (c.toolDurability < 100) {
+                      <button type="button"
+                              [disabled]="busy() === c.role"
+                              (click)="repair(c.role)">
+                        Réparer ({{ repairCost(c) }} fer)
+                      </button>
+                    }
                     @if (c.skillPointsUnspent > 0) {
                       <button type="button" (click)="openPicker(c)">
                         Dépenser {{ c.skillPointsUnspent }} pt
@@ -342,6 +350,15 @@ export class CampPanelComponent implements OnInit {
   protected async claim(role: CompanionRole): Promise<void> {
     await this.guarded(role, () => this.companionsSvc.claim(role));
     await this.resourcesSvc.loadMine();
+  }
+
+  protected async repair(role: CompanionRole): Promise<void> {
+    await this.guarded(role, () => this.companionsSvc.repair(role));
+    await this.resourcesSvc.loadMine();
+  }
+
+  protected repairCost(c: Companion): number {
+    return toolRepairCost(100 - c.toolDurability);
   }
 
   protected async switchTrack(c: Companion, event: Event): Promise<void> {

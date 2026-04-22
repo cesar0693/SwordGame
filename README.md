@@ -251,10 +251,15 @@ Livré dans ce commit. Streak basé sur le jour UTC :
 - Streak cassé (plus de 24h sans claim) → retour à 0.
 - Panneau s'ouvre automatiquement à la première connexion du jour si un claim est disponible.
 
-### Phase 3 — Inventaire & équipement
-- Items : `WEAPON`, `OFFHAND`, `HELMET`, `ARMOR`, `BOOTS`, `RING`, `AMULET`.
-- Raretés : `COMMON`, `UNCOMMON`, `RARE`, `EPIC`, `LEGENDARY`.
-- Slots d'équipement → modifie les stats calculées du héros.
+### Phase 3 — Inventaire & équipement ✅
+Livré dans ce commit :
+- **Items d'équipement** sur 7 slots (`WEAPON`, `OFFHAND`, `HELMET`, `ARMOR`, `BOOTS`, `RING`, `AMULET`) avec 5 raretés (`COMMON` → `LEGENDARY`).
+- **Génération par le Forgeron** : chaque cycle de `IRON_GEAR` / `COPPER_GEAR` / `SILVER_GEAR` produit 1 item roulé aléatoirement (slot + rareté pondérée 90/8/1.5/0.4/0.1%, bonus scalés par tier × rareté).
+- **Slots autorisés par type de bonus** : une arme roll attaque/crit/vitesse, une armure roll PV/déf/esquive, etc.
+- **Stats effectives** : le Hero DTO expose maintenant `stats` (base) **et** `effectiveStats` (base + équipement). Le panneau Profil affiche les trois colonnes (Base / Bonus / Effectif).
+- **Panneau Inventaire** : vue équipés par slot + sac avec équiper/déséquiper/jeter. Équiper dans un slot déjà occupé déséquipe l'ancien automatiquement.
+- **Réparation des outils** : bouton sur chaque carte de compagnon. Coût = `ceil(missing_durability / 10)` en fer.
+- **ItemKind** : prêt pour les consommables (potions/pain) ; génération réelle et effets en Phase 4.
 
 ### Phase 4 — Missions & combat PvE
 - Catalogue de missions (difficulté, durée, récompenses attendues).
