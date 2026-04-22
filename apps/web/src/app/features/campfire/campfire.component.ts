@@ -3,10 +3,16 @@ import { Router } from '@angular/router';
 import type { Hero } from '@swordgame/shared';
 import { AuthService } from '../../core/auth/auth.service';
 import { HeroesService } from '../../core/heroes/heroes.service';
+import { DailyService } from '../../core/daily/daily.service';
+import { ResourcesService } from '../../core/resources/resources.service';
 import { CampfireSceneComponent } from './scene/campfire-scene.component';
 import { HeroHudComponent } from './ui/hero-hud.component';
+import { GoldIndicatorComponent } from './ui/gold-indicator.component';
 import { ActionDockComponent, type DockAction } from './ui/action-dock.component';
 import { ProfilePanelComponent } from './panels/profile-panel.component';
+import { CampPanelComponent } from './panels/camp-panel.component';
+import { MarketPanelComponent } from './panels/market-panel.component';
+import { DailyClaimPanelComponent } from './panels/daily-claim-panel.component';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -15,8 +21,12 @@ import { HeroCreationComponent } from './hero-creation.component';
   imports: [
     CampfireSceneComponent,
     HeroHudComponent,
+    GoldIndicatorComponent,
     ActionDockComponent,
     ProfilePanelComponent,
+    CampPanelComponent,
+    MarketPanelComponent,
+    DailyClaimPanelComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -66,30 +76,33 @@ import { HeroCreationComponent } from './hero-creation.component';
     @if (loading()) {
       <div class="loading">Chargement du camp…</div>
     } @else {
-      <!-- Full-viewport scene (background layer) -->
       <sg-campfire-scene [heroClass]="sceneClass()" />
 
-      <!-- Top-right: user + logout -->
       <div class="topbar">
         <span class="user">{{ auth.user()?.username }}</span>
         <button type="button" (click)="logout()">Déconnexion</button>
       </div>
 
       @if (heroes.hero(); as hero) {
-        <!-- HUD top-left -->
         <sg-hero-hud [hero]="hero" />
-
-        <!-- Bottom dock -->
+        <sg-gold-indicator />
         <sg-action-dock (opened)="openPanel($event)" />
 
-        <!-- Modal panels -->
         @switch (openPanelId()) {
           @case ('profile') {
             <sg-profile-panel [hero]="hero" (closed)="closePanel()" />
           }
+          @case ('camp') {
+            <sg-camp-panel (closed)="closePanel()" />
+          }
+          @case ('market') {
+            <sg-market-panel (closed)="closePanel()" />
+          }
+          @case ('dailies') {
+            <sg-daily-claim-panel (closed)="closePanel()" />
+          }
         }
       } @else {
-        <!-- No hero yet: creation panel centered on the scene -->
         <sg-hero-creation />
       }
 
@@ -102,6 +115,8 @@ import { HeroCreationComponent } from './hero-creation.component';
 export class CampfireComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly heroes = inject(HeroesService);
+  private readonly resourcesSvc = inject(ResourcesService);
+  private readonly dailySvc = inject(DailyService);
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
@@ -110,11 +125,25 @@ export class CampfireComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      await this.heroes.loadMine();
+      const hero = await this.heroes.loadMine();
+      if (hero) {
+        await Promise.all([this.resourcesSvc.loadMine(), this.loadDailyAndMaybeOpen()]);
+      }
     } catch (err: unknown) {
       this.error.set((err as Error).message ?? 'Erreur inconnue');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  private async loadDailyAndMaybeOpen(): Promise<void> {
+    try {
+      const state = await this.dailySvc.loadState();
+      if (state.canClaimToday) {
+        this.openPanelId.set('dailies');
+      }
+    } catch {
+      // silent — non-critical
     }
   }
 

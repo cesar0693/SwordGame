@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, output } from '@angular/core';
 export type DockAction =
   | 'profile'
   | 'camp'
+  | 'market'
   | 'inventory'
   | 'missions'
   | 'forge'
@@ -99,13 +100,14 @@ export class ActionDockComponent {
 
   protected readonly items: DockItem[] = [
     { id: 'profile',   label: 'Profil',     glyph: '♦', hint: 'Stats et progression du héros', available: true },
-    { id: 'camp',      label: 'Camp',       glyph: '⌂', hint: 'Compagnons (Phase 2)',          available: false },
+    { id: 'camp',      label: 'Camp',       glyph: '⌂', hint: 'Compagnons, ressources et progression', available: true },
+    { id: 'market',    label: 'Marché',     glyph: '⚖', hint: 'Acheter, vendre, enchérir', available: true },
+    { id: 'dailies',   label: 'Journalier', glyph: '☀', hint: 'Récompense de connexion quotidienne', available: true },
     { id: 'inventory', label: 'Sac',        glyph: '▣', hint: 'Inventaire & équipement (Phase 3)', available: false },
     { id: 'missions',  label: 'Missions',   glyph: '▶', hint: 'Combat PvE auto (Phase 4)',     available: false },
     { id: 'forge',     label: 'Forge',      glyph: '⚒', hint: 'Craft & upgrades (Phase 5)',    available: false },
     { id: 'spells',    label: 'Sorts',      glyph: '✦', hint: 'Apprentissage & équipement (Phase 6)', available: false },
     { id: 'arena',     label: 'Arène',      glyph: '⚔', hint: 'PvP classé (Phase 7)',          available: false },
-    { id: 'dailies',   label: 'Journalier', glyph: '☀', hint: 'Mini-jeux quotidiens (Phase 8)', available: false },
   ];
 
   protected open(item: DockItem): void {

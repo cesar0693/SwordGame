@@ -4,3 +4,6 @@ export * from './resources.js';
 export * from './buildings.js';
 export * from './items.js';
 export * from './combat.js';
+export * from './companions.js';
+export * from './market.js';
+export * from './daily.js';

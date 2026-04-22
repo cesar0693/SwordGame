@@ -4,6 +4,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { HeroesModule } from './heroes/heroes.module';
+import { ResourcesModule } from './resources/resources.module';
+import { CompanionsModule } from './companions/companions.module';
+import { MarketModule } from './market/market.module';
+import { DailyModule } from './daily/daily.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -13,6 +17,10 @@ import { HealthController } from './health.controller';
     AuthModule,
     UsersModule,
     HeroesModule,
+    ResourcesModule,
+    CompanionsModule,
+    MarketModule,
+    DailyModule,
   ],
   controllers: [HealthController],
 })

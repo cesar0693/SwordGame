@@ -174,7 +174,7 @@ Chaque phase est un lot livrable indépendant. Les phases **0** et **1** sont po
 - [x] Création du héros (nom, classe Guerrier/Mage/Rôdeur, apparence) quand aucun héros n'existe, dans le même style visuel.
 - [x] Tous les assets sont des **placeholders SVG** remplaçables sans toucher au code (voir `apps/web/public/assets/placeholders/`).
 
-### Phase 2 — Compagnons du camp (refonte "bâtiments")
+### Phase 2 — Compagnons, marché et connexion quotidienne ✅
 Au lieu de bâtiments, on débloque **des compagnons** qui s'installent autour du feu et travaillent pour le héros. Chacun a un rôle économique, un niveau, un équipement et des **arbitrages forts** (on ne peut pas tout maximiser).
 
 | Compagnon | Rôle principal | Inputs | Outputs |
@@ -201,12 +201,40 @@ Ces voies ne sont **pas cumulatives** pour un même palier, et les paliers suiva
 - Les outils s'usent : les améliorer coûte des ressources (économie circulaire).
 - Le héros peut ramener du loot de mission qui sert de catalyseur pour des recettes (l'Alchimiste a besoin d'un œil de gobelin rare pour la potion X…).
 
-**Modèle de données** (à implémenter en Phase 2, ajouté au schéma de façon additive) :
-- `Companion` : type, niveau, état (idle / working / waiting_for_input), barre de progression courante.
-- `CompanionSpec` : pour chaque compagnon, la liste des arbitrages choisis par palier.
-- `CompanionJob` : cycle en cours (`startAt`, `finishAt`, `expectedOutput`).
+**Modèle de données** (livré dans ce commit) :
+- `Companion` : rôle, niveau, état (`LOCKED` / `IDLE` / `WORKING`), `cycleStartAt`/`cycleFinishAt`, durabilité des outils, cycles cumulés.
+- `CompanionPerkPick` : les voies choisies par palier (niveaux 2, 4, 6).
+- Catalogue statique (noms, coûts, durées, outputs, perk trees) dans `packages/shared/src/companions.ts`.
 
-Les timers réutilisent exactement le pattern `startAt / finishAt` déjà posé dans le schéma Prisma pour `Building` (table qui servira désormais de base à `Companion`, ou sera renommée par une migration dédiée).
+**Règles livrées dans ce commit** :
+- Déblocages progressifs : Mineur et Bûcheron disponibles dès le niveau 1, les autres à Niv 3 / 5 / 7 avec un coût en ressources.
+- Paliers de perks : **2 → 4 → 6 cycles-levels** (5 / 15 / 30 cycles cumulés).
+- Plafond hors-ligne : **12 cycles max** accumulés pendant la déconnexion.
+- Durabilité des outils : consommée à chaque cycle ; plancher 0 bloque le démarrage (réparation en Phase 3).
+- Cumul de buffs (potions, à venir) : **stats différentes = cumul, même stat = plus fort écrase**.
+
+#### Marché entre joueurs
+
+Livré dans ce commit. Deux modes :
+
+- **Achat immédiat** : une offre à prix fixe, n'importe qui achète instantanément.
+- **Enchère** : prix de départ + durée (1h / 8h / 24h) + éventuel "achat direct" (buyout). Les enchères remboursent automatiquement le précédent plus-offrant ; un bid atteignant le buyout conclut la vente.
+
+**Règles anti-inflation** :
+- Taxe de maison de **5 %** sur toute vente (sink d'or).
+- L'or ne peut pas être mis en vente sur le marché (évite les boucles de blanchiment).
+- Les ressources sont escrow-ées à la création de l'offre → pas de double-vente possible.
+- Annulation possible seulement avant la première enchère (pour les auctions).
+- Expiration automatique ; les enchères avec un meilleur offrant règlent à l'expiration (transfert + taxe). Les autres remboursent le vendeur.
+
+**Modèle de données** : `MarketListing` + `MarketBid` (ajoutés au schéma).
+
+#### Récompense de connexion quotidienne
+
+Livré dans ce commit. Streak basé sur le jour UTC :
+- Jour 1 : +20 or, +10 par jour supplémentaire, **plafonné à Jour 7 (+80)**.
+- Streak cassé (plus de 24h sans claim) → retour à 0.
+- Panneau s'ouvre automatiquement à la première connexion du jour si un claim est disponible.
 
 ### Phase 3 — Inventaire & équipement
 - Items : `WEAPON`, `OFFHAND`, `HELMET`, `ARMOR`, `BOOTS`, `RING`, `AMULET`.
@@ -232,7 +260,7 @@ Les timers réutilisent exactement le pattern `startAt / finishAt` déjà posé 
 - Rewards de saison, cooldown entre défis.
 
 ### Phase 8 — Quêtes journalières & mini-jeux
-- Reset UTC quotidien.
+- Reset UTC quotidien (connexion quotidienne déjà livrée en Phase 2).
 - Mini-jeux (pile-ou-face enchaîné, memory, dés) récompensant XP/or.
 
 ### Phase 9 — Polish

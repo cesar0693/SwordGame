@@ -1,9 +1,13 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ResourcesService } from '../resources/resources.service';
+import { CompanionsService } from '../companions/companions.service';
 import {
   BASE_STATS_BY_CLASS,
   xpForLevel,
@@ -17,7 +21,12 @@ type HeroRow = Awaited<ReturnType<PrismaService['hero']['findUnique']>>;
 
 @Injectable()
 export class HeroesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resources: ResourcesService,
+    @Inject(forwardRef(() => CompanionsService))
+    private readonly companions: CompanionsService,
+  ) {}
 
   async create(
     userId: string,
@@ -33,21 +42,27 @@ export class HeroesService {
     }
 
     const base = BASE_STATS_BY_CLASS[input.heroClass];
-    const hero = await this.prisma.hero.create({
-      data: {
-        userId,
-        name: input.name,
-        heroClass: input.heroClass,
-        appearance: input.appearance as unknown as object,
-        hp: base.hp,
-        mp: base.mp,
-        attack: base.attack,
-        defense: base.defense,
-        speed: base.speed,
-        critChance: base.critChance,
-        critFailChance: base.critFailChance,
-        dodgeChance: base.dodgeChance,
-      },
+
+    const hero = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.hero.create({
+        data: {
+          userId,
+          name: input.name,
+          heroClass: input.heroClass,
+          appearance: input.appearance as unknown as object,
+          hp: base.hp,
+          mp: base.mp,
+          attack: base.attack,
+          defense: base.defense,
+          speed: base.speed,
+          critChance: base.critChance,
+          critFailChance: base.critFailChance,
+          dodgeChance: base.dodgeChance,
+        },
+      });
+      await this.resources.seed(created.id, tx);
+      await this.companions.seed(created.id, tx);
+      return created;
     });
 
     return this.toDto(hero);

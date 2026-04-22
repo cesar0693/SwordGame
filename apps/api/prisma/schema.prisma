@@ -66,18 +66,22 @@ model Hero {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  resources   Resource[]
-  buildings   Building[]
-  items       Item[]
-  missionRuns MissionRun[]
-  heroSpells  HeroSpell[]
-  dailyQuests DailyQuest[]
-  pvpAsAttacker PvpMatch[] @relation("PvpAttacker")
-  pvpAsDefender PvpMatch[] @relation("PvpDefender")
+  resources     Resource[]
+  companions    Companion[]
+  items         Item[]
+  missionRuns   MissionRun[]
+  heroSpells    HeroSpell[]
+  dailyQuests   DailyQuest[]
+  dailyClaims   DailyClaim[]
+  marketListingsAsSeller MarketListing[] @relation("MarketSeller")
+  marketListingsAsBuyer  MarketListing[] @relation("MarketBuyer")
+  marketBids             MarketBid[]
+  pvpAsAttacker          PvpMatch[] @relation("PvpAttacker")
+  pvpAsDefender          PvpMatch[] @relation("PvpDefender")
 }
 
 // --------------------------------------------------------------------------
-// Resources & buildings
+// Resources
 // --------------------------------------------------------------------------
 
 enum ResourceType {
@@ -95,32 +99,57 @@ model Resource {
   hero     Hero         @relation(fields: [heroId], references: [id], onDelete: Cascade)
   type     ResourceType
   amount   Int          @default(0)
-  // Timestamp of the last time production was collected into `amount`.
   lastTickAt DateTime   @default(now())
 
   @@unique([heroId, type])
 }
 
-enum BuildingType {
+// --------------------------------------------------------------------------
+// Companions (Phase 2) — replaces the old Building model
+// --------------------------------------------------------------------------
+
+enum CompanionRole {
+  MINER
   WOODCUTTER
-  MINE
-  TANNERY
-  HERBALIST
-  FORGE
-  ALTAR
-  TENT
+  FARMER
+  GATHERER
+  ALCHEMIST
+  BAKER
+  BLACKSMITH
 }
 
-model Building {
-  id                 String       @id @default(cuid())
-  heroId             String
-  hero               Hero         @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  type               BuildingType
-  level              Int          @default(0)
-  upgradeStartedAt   DateTime?
-  upgradeFinishesAt  DateTime?
+enum CompanionState {
+  LOCKED
+  IDLE
+  WORKING
+}
 
-  @@unique([heroId, type])
+model Companion {
+  id               String         @id @default(cuid())
+  heroId           String
+  hero             Hero           @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  role             CompanionRole
+  level            Int            @default(1)
+  cyclesCompleted  Int            @default(0)
+  state            CompanionState @default(LOCKED)
+  toolDurability   Int            @default(100)
+  unlockedAt       DateTime?
+  cycleStartAt     DateTime?
+  cycleFinishAt    DateTime?
+
+  perks CompanionPerkPick[]
+
+  @@unique([heroId, role])
+}
+
+model CompanionPerkPick {
+  id          String    @id @default(cuid())
+  companionId String
+  companion   Companion @relation(fields: [companionId], references: [id], onDelete: Cascade)
+  level       Int
+  code        String
+
+  @@unique([companionId, level])
 }
 
 // --------------------------------------------------------------------------
@@ -174,7 +203,7 @@ model Mission {
   enemyStats        Json
   rewardXp          Int
   rewardGold        Int
-  rewardLoot        Json         // drop table
+  rewardLoot        Json
   createdAt         DateTime     @default(now())
 
   runs              MissionRun[]
@@ -212,7 +241,7 @@ model Spell {
   description String
   classLock   HeroClass?
   mpCost      Int
-  cooldown    Int         // in turns
+  cooldown    Int
   effect      Json
 
   learnedBy   HeroSpell[]
@@ -259,7 +288,7 @@ model PvpMatch {
 }
 
 // --------------------------------------------------------------------------
-// Daily quests
+// Daily quests & daily claim
 // --------------------------------------------------------------------------
 
 model DailyQuest {
@@ -274,4 +303,75 @@ model DailyQuest {
   day        DateTime
 
   @@unique([heroId, code, day])
+}
+
+model DailyClaim {
+  id         String   @id @default(cuid())
+  heroId     String
+  hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  day        DateTime
+  streak     Int
+  rewardGold Int
+  claimedAt  DateTime @default(now())
+
+  @@unique([heroId, day])
+}
+
+// --------------------------------------------------------------------------
+// Marketplace
+// --------------------------------------------------------------------------
+
+enum MarketListingType {
+  INSTANT_BUY
+  AUCTION
+}
+
+enum MarketListingState {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+enum MarketAssetType {
+  RESOURCE
+  ITEM
+}
+
+model MarketListing {
+  id               String             @id @default(cuid())
+  sellerHeroId     String
+  sellerHero       Hero               @relation("MarketSeller", fields: [sellerHeroId], references: [id], onDelete: Cascade)
+  listingType      MarketListingType
+  assetType        MarketAssetType
+  resourceType     ResourceType?
+  amount           Int?
+  itemId           String?            @unique
+  priceGold        Int
+  buyoutGold       Int?
+  highestBid       Int?
+  highestBidderId  String?
+  state            MarketListingState @default(ACTIVE)
+  expiresAt        DateTime
+  createdAt        DateTime           @default(now())
+  soldAt           DateTime?
+  buyerHeroId      String?
+  buyerHero        Hero?              @relation("MarketBuyer", fields: [buyerHeroId], references: [id])
+
+  bids MarketBid[]
+
+  @@index([state, assetType, resourceType])
+  @@index([sellerHeroId, state])
+}
+
+model MarketBid {
+  id           String        @id @default(cuid())
+  listingId    String
+  listing      MarketListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  bidderHeroId String
+  bidderHero   Hero          @relation(fields: [bidderHeroId], references: [id], onDelete: Cascade)
+  amount       Int
+  placedAt     DateTime      @default(now())
+
+  @@index([listingId, placedAt])
 }
