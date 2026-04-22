@@ -187,14 +187,27 @@ Au lieu de bâtiments, on débloque **des compagnons** qui s'installent autour d
 | Boulanger | cuisine pour la vie max | `FLOUR` du Paysan | pain (regen HP hors combat, +HP max temporaire) |
 | Forgeron | forge/améliore l'équipement | `IRON`/`WOOD`/`LEATHER` | armes, armures, upgrade d'items |
 
-**Arbitrages (le cœur du design)** : à chaque montée de niveau d'un compagnon, le joueur reçoit **un point de spécialisation** et doit choisir **une seule** voie parmi plusieurs mutuellement exclusives. Exemple pour le Mineur niveau 2 :
+**Progression en deux couches** :
 
-- **Voie A** — Débloquer une nouvelle ressource (`COPPER`) mais rythme de récolte inchangé.
-- **Voie B** — +25 % de quantité par cycle sur la ressource actuelle.
-- **Voie C** — −20 % de temps entre deux cycles.
-- **Voie D** — Chance (+10 %) de trouver un minerai rare.
+1. **Déblocages automatiques** : chaque compagnon a plusieurs "tracks" (ressources) qui se débloquent à des niveaux fixes. Les tracks tardives sont **plus lentes et moins abondantes** de base (équilibrage assumé).
+   Exemple Mineur :
+   - Niv 1 : IRON (60s / 8)
+   - Niv 3 : COPPER (100s / 5)
+   - Niv 5 : SILVER (180s / 3)
+   - Niv 7 : GEM (300s / 1)
 
-Ces voies ne sont **pas cumulatives** pour un même palier, et les paliers suivants proposent d'autres arbitrages (ex : efficacité vs endurance vs diversité). Le joueur doit donc construire une économie cohérente, pas une économie "tout-optimal".
+2. **Points de compétence** : à chaque niveau gagné, le compagnon reçoit **1 point**. Le joueur le dépense sur **une track précise** avec un seul arbitrage binaire :
+   - **+ Quantité** : +20 % de rendement par cycle (additif, cap à 5×).
+   - **− Temps** : −10 % du temps de cycle (additif, plancher 5× vitesse).
+
+   Les points peuvent être dépensés plusieurs fois sur la même track, sur la même axe. Le joueur peut aussi **diversifier** entre plusieurs minerais.
+
+**Active track** : à tout moment, un compagnon travaille sur **une seule track** à la fois. Le joueur change via le sélecteur du panneau Camp (seulement à l'arrêt). L'intérêt : même si COPPER produit en base 5 par cycle, un joueur qui y dépense 8 points de quantité extrait 21/cycle, à comparer avec de l'IRON de base à 8. Personne ne peut tout max : chaque point dépensé sur COPPER-quantité est un point perdu pour IRON-vitesse.
+
+**Pourquoi c'est stable** (inspiré de RuneScape / Melvor Idle / Factorio) :
+- Les tracks tardives valent cher à l'unité (temps de cycle plus long) mais les crafts aval en demandent spécifiquement (Forgeron tier 2+ a besoin de COPPER ou SILVER).
+- Les caps (×5 qty, ×5 vitesse max) bornent l'inflation de production.
+- Le marché régule la valeur relative : un joueur spécialisé GEM peut vendre cher aux autres.
 
 **Boucle économique** :
 - Un compagnon travaille en continu tant qu'il a ses consommables (énergie/outils).
@@ -202,16 +215,18 @@ Ces voies ne sont **pas cumulatives** pour un même palier, et les paliers suiva
 - Le héros peut ramener du loot de mission qui sert de catalyseur pour des recettes (l'Alchimiste a besoin d'un œil de gobelin rare pour la potion X…).
 
 **Modèle de données** (livré dans ce commit) :
-- `Companion` : rôle, niveau, état (`LOCKED` / `IDLE` / `WORKING`), `cycleStartAt`/`cycleFinishAt`, durabilité des outils, cycles cumulés.
-- `CompanionPerkPick` : les voies choisies par palier (niveaux 2, 4, 6).
-- Catalogue statique (noms, coûts, durées, outputs, perk trees) dans `packages/shared/src/companions.ts`.
+- `Companion` : rôle, niveau, état (`LOCKED`/`IDLE`/`WORKING`), `activeTrack`, `skillPointsUnspent`, `cyclesCompleted`, durabilité, timers de cycle.
+- `CompanionSkillSpend` : `{ trackCode, axis: QUANTITY | SPEED }`. Un point dépensé = une ligne.
+- Catalogue statique (rôles, tracks, coûts, temps de base) dans `packages/shared/src/companions.ts`.
+- 14 `ResourceType` : `GOLD`, tiers minérales (`IRON` → `GEM`), tiers bois (`WOOD` → `IRONWOOD`), céréales, plantes, cuir.
 
 **Règles livrées dans ce commit** :
-- Déblocages progressifs : Mineur et Bûcheron disponibles dès le niveau 1, les autres à Niv 3 / 5 / 7 avec un coût en ressources.
-- Paliers de perks : **2 → 4 → 6 cycles-levels** (5 / 15 / 30 cycles cumulés).
-- Plafond hors-ligne : **12 cycles max** accumulés pendant la déconnexion.
-- Durabilité des outils : consommée à chaque cycle ; plancher 0 bloque le démarrage (réparation en Phase 3).
-- Cumul de buffs (potions, à venir) : **stats différentes = cumul, même stat = plus fort écrase**.
+- Déblocages compagnons : Mineur/Bûcheron dès Niv héros 1, Paysan/Récolteur Niv 3, Alchimiste/Boulanger Niv 5, Forgeron Niv 7.
+- Niveaux compagnon : 5 / 12 / 22 / 35 / 55 / 80 / 110 cycles cumulés, puis +30 par niveau.
+- Chaque level-up = +1 point de compétence dépensable sur n'importe quelle track débloquée.
+- Plafond hors-ligne : **12 cycles** accumulés pendant la déconnexion.
+- Outils s'usent à 2/cycle, plancher 0 bloque le démarrage (réparation en Phase 3).
+- Cumul des buffs de potions (à venir) : stats différentes = cumul, même stat = plus fort écrase.
 
 #### Marché entre joueurs
 

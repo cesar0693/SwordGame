@@ -85,12 +85,20 @@ model Hero {
 // --------------------------------------------------------------------------
 
 enum ResourceType {
-  WOOD
-  IRON
-  LEATHER
-  HERB
   GOLD
+  IRON
+  COPPER
+  SILVER
   GEM
+  WOOD
+  OAK
+  IRONWOOD
+  WHEAT
+  CORN
+  HERB
+  MUSHROOM
+  FLOWER
+  LEATHER
 }
 
 model Resource {
@@ -125,31 +133,39 @@ enum CompanionState {
 }
 
 model Companion {
-  id               String         @id @default(cuid())
-  heroId           String
-  hero             Hero           @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  role             CompanionRole
-  level            Int            @default(1)
-  cyclesCompleted  Int            @default(0)
-  state            CompanionState @default(LOCKED)
-  toolDurability   Int            @default(100)
-  unlockedAt       DateTime?
-  cycleStartAt     DateTime?
-  cycleFinishAt    DateTime?
+  id                  String         @id @default(cuid())
+  heroId              String
+  hero                Hero           @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  role                CompanionRole
+  level               Int            @default(1)
+  cyclesCompleted     Int            @default(0)
+  skillPointsUnspent  Int            @default(0)
+  activeTrack         String         @default("")
+  state               CompanionState @default(LOCKED)
+  toolDurability      Int            @default(100)
+  unlockedAt          DateTime?
+  cycleStartAt        DateTime?
+  cycleFinishAt       DateTime?
 
-  perks CompanionPerkPick[]
+  spends CompanionSkillSpend[]
 
   @@unique([heroId, role])
 }
 
-model CompanionPerkPick {
+enum SkillAxis {
+  QUANTITY
+  SPEED
+}
+
+model CompanionSkillSpend {
   id          String    @id @default(cuid())
   companionId String
   companion   Companion @relation(fields: [companionId], references: [id], onDelete: Cascade)
-  level       Int
-  code        String
+  trackCode   String
+  axis        SkillAxis
+  createdAt   DateTime  @default(now())
 
-  @@unique([companionId, level])
+  @@index([companionId, trackCode])
 }
 
 // --------------------------------------------------------------------------

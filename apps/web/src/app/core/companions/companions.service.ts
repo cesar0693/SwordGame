@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { Companion, CompanionRole } from '@swordgame/shared';
+import type { Companion, CompanionRole, SkillAxis } from '@swordgame/shared';
 import { env } from '../env';
 
 @Injectable({ providedIn: 'root' })
@@ -18,38 +18,45 @@ export class CompanionsService {
   }
 
   async unlock(role: CompanionRole): Promise<Companion> {
-    const c = await firstValueFrom(
-      this.http.post<Companion>(`${this.base}/${role}/unlock`, {}),
+    return this.patched(
+      await firstValueFrom(this.http.post<Companion>(`${this.base}/${role}/unlock`, {})),
     );
-    this.patch(c);
-    return c;
   }
 
   async start(role: CompanionRole): Promise<Companion> {
-    const c = await firstValueFrom(
-      this.http.post<Companion>(`${this.base}/${role}/start`, {}),
+    return this.patched(
+      await firstValueFrom(this.http.post<Companion>(`${this.base}/${role}/start`, {})),
     );
-    this.patch(c);
-    return c;
   }
 
   async claim(role: CompanionRole): Promise<Companion> {
-    const c = await firstValueFrom(
-      this.http.post<Companion>(`${this.base}/${role}/claim`, {}),
+    return this.patched(
+      await firstValueFrom(this.http.post<Companion>(`${this.base}/${role}/claim`, {})),
     );
-    this.patch(c);
-    return c;
   }
 
-  async pickPerk(role: CompanionRole, level: number, code: string): Promise<Companion> {
-    const c = await firstValueFrom(
-      this.http.post<Companion>(`${this.base}/${role}/perk`, { level, code }),
+  async setTrack(role: CompanionRole, trackCode: string): Promise<Companion> {
+    return this.patched(
+      await firstValueFrom(
+        this.http.post<Companion>(`${this.base}/${role}/track`, { trackCode }),
+      ),
     );
-    this.patch(c);
-    return c;
   }
 
-  private patch(c: Companion): void {
+  async spendSkill(
+    role: CompanionRole,
+    trackCode: string,
+    axis: SkillAxis,
+  ): Promise<Companion> {
+    return this.patched(
+      await firstValueFrom(
+        this.http.post<Companion>(`${this.base}/${role}/skill`, { trackCode, axis }),
+      ),
+    );
+  }
+
+  private patched(c: Companion): Companion {
     this.companions.update((list) => list.map((x) => (x.id === c.id ? c : x)));
+    return c;
   }
 }

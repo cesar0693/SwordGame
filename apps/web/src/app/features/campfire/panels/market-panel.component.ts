@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import {
   AUCTION_DURATIONS_HOURS,
   MARKET_TAX_RATE,
+  RESOURCE_LABELS,
   RESOURCE_TYPES,
   type AuctionDurationHours,
   type MarketListing,
@@ -370,10 +371,7 @@ export class MarketPanelComponent implements OnInit {
   }
 
   protected resourceLabel(t: ResourceType): string {
-    const map: Record<ResourceType, string> = {
-      WOOD: 'Bois', IRON: 'Fer', LEATHER: 'Cuir', HERB: 'Herbe', GOLD: 'Or', GEM: 'Gemme',
-    };
-    return map[t];
+    return RESOURCE_LABELS[t];
   }
 
   protected relativeTime(iso: string): string {

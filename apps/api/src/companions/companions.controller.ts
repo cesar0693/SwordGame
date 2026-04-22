@@ -13,7 +13,7 @@ import { COMPANION_ROLES, type CompanionRole } from '@swordgame/shared';
 import { CurrentUser, JwtPayload } from '../common/current-user.decorator';
 import { HeroesService } from '../heroes/heroes.service';
 import { CompanionsService } from './companions.service';
-import { PickPerkDto } from './dto';
+import { SetTrackDto, SpendSkillDto } from './dto';
 
 @Controller('companions')
 @UseGuards(AuthGuard('jwt'))
@@ -48,14 +48,29 @@ export class CompanionsController {
     return this.companions.claim(hero.id, this.parseRole(role));
   }
 
-  @Post(':role/perk')
-  async pickPerk(
+  @Post(':role/track')
+  async setTrack(
     @CurrentUser() user: JwtPayload,
     @Param('role') role: string,
-    @Body() dto: PickPerkDto,
+    @Body() dto: SetTrackDto,
   ) {
     const hero = await this.requireHero(user.sub);
-    return this.companions.pickPerk(hero.id, this.parseRole(role), dto.level, dto.code);
+    return this.companions.setActiveTrack(hero.id, this.parseRole(role), dto.trackCode);
+  }
+
+  @Post(':role/skill')
+  async spend(
+    @CurrentUser() user: JwtPayload,
+    @Param('role') role: string,
+    @Body() dto: SpendSkillDto,
+  ) {
+    const hero = await this.requireHero(user.sub);
+    return this.companions.spendSkill(
+      hero.id,
+      this.parseRole(role),
+      dto.trackCode,
+      dto.axis,
+    );
   }
 
   private async requireHero(userId: string) {

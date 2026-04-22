@@ -1,16 +1,17 @@
-import { IsEnum, IsInt, IsString, Min } from 'class-validator';
-import { COMPANION_ROLES, type CompanionRole } from '@swordgame/shared';
+import { IsEnum, IsString } from 'class-validator';
+import type { SkillAxis } from '@swordgame/shared';
 
-export class RoleParamDto {
-  @IsEnum(COMPANION_ROLES)
-  role!: CompanionRole;
+const AXES: SkillAxis[] = ['QUANTITY', 'SPEED'];
+
+export class SetTrackDto {
+  @IsString()
+  trackCode!: string;
 }
 
-export class PickPerkDto {
-  @IsInt()
-  @Min(1)
-  level!: number;
-
+export class SpendSkillDto {
   @IsString()
-  code!: string;
+  trackCode!: string;
+
+  @IsEnum(AXES)
+  axis!: SkillAxis;
 }

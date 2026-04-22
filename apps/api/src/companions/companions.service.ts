@@ -11,15 +11,21 @@ import {
   OFFLINE_CYCLE_CAP,
   type Companion,
   type CompanionRole,
+  type CompanionSkillSpend,
   type CompanionState,
   type ResourceType,
+  type SkillAxis,
 } from '@swordgame/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
 import {
-  cycleModifiersFromPerks,
+  VALID_AXES,
+  defaultTrackCode,
   levelForCycles,
-  pendingPerkLevel,
+  runtimeFor,
+  trackByCode,
+  trackUnlocked,
+  unlockedTracks,
 } from './companions.rules';
 
 type Tx = Prisma.TransactionClient;
@@ -35,7 +41,6 @@ export class CompanionsService {
   // Seed
   // -----------------------------------------------------------------------
 
-  /** Create one row per companion role for a new hero. */
   async seed(heroId: string, tx: Tx = this.prisma): Promise<void> {
     for (const role of COMPANION_ROLES) {
       const spec = COMPANION_CATALOG[role];
@@ -47,6 +52,7 @@ export class CompanionsService {
           heroId,
           role,
           state: autoUnlock ? 'IDLE' : 'LOCKED',
+          activeTrack: defaultTrackCode(role),
           unlockedAt: autoUnlock ? new Date() : null,
         },
       });
@@ -60,7 +66,7 @@ export class CompanionsService {
   async listByHero(heroId: string): Promise<Companion[]> {
     const rows = await this.prisma.companion.findMany({
       where: { heroId },
-      include: { perks: true },
+      include: { spends: true },
       orderBy: { role: 'asc' },
     });
     return rows.map((r) => this.toDto(r));
@@ -75,20 +81,16 @@ export class CompanionsService {
     const hero = await this.prisma.hero.findUnique({ where: { id: heroId } });
     if (!hero) throw new NotFoundException('Hero not found');
     if (hero.level < spec.unlockHeroLevel) {
-      throw new BadRequestException(
-        `Requires hero level ${spec.unlockHeroLevel}`,
-      );
+      throw new BadRequestException(`Requires hero level ${spec.unlockHeroLevel}`);
     }
 
     return this.prisma.$transaction(async (tx) => {
       const comp = await tx.companion.findUnique({
         where: { heroId_role: { heroId, role } },
-        include: { perks: true },
+        include: { spends: true },
       });
       if (!comp) throw new NotFoundException('Companion slot missing');
-      if (comp.state !== 'LOCKED') {
-        throw new ConflictException('Already unlocked');
-      }
+      if (comp.state !== 'LOCKED') throw new ConflictException('Already unlocked');
 
       for (const [type, cost] of Object.entries(spec.unlockCost)) {
         if (cost && cost > 0) {
@@ -98,8 +100,42 @@ export class CompanionsService {
 
       const updated = await tx.companion.update({
         where: { id: comp.id },
-        data: { state: 'IDLE', unlockedAt: new Date() },
-        include: { perks: true },
+        data: {
+          state: 'IDLE',
+          unlockedAt: new Date(),
+          activeTrack: comp.activeTrack || defaultTrackCode(role),
+        },
+        include: { spends: true },
+      });
+      return this.toDto(updated);
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Change active track
+  // -----------------------------------------------------------------------
+
+  async setActiveTrack(
+    heroId: string,
+    role: CompanionRole,
+    trackCode: string,
+  ): Promise<Companion> {
+    return this.prisma.$transaction(async (tx) => {
+      const comp = await tx.companion.findUnique({
+        where: { heroId_role: { heroId, role } },
+        include: { spends: true },
+      });
+      if (!comp) throw new NotFoundException('Companion not found');
+      if (comp.state === 'LOCKED') throw new ConflictException('Locked');
+      if (comp.state === 'WORKING')
+        throw new ConflictException('Cannot switch while working');
+      if (!trackUnlocked(role, trackCode, comp.level))
+        throw new BadRequestException('Track not unlocked');
+
+      const updated = await tx.companion.update({
+        where: { id: comp.id },
+        data: { activeTrack: trackCode },
+        include: { spends: true },
       });
       return this.toDto(updated);
     });
@@ -113,69 +149,52 @@ export class CompanionsService {
     return this.prisma.$transaction(async (tx) => {
       const comp = await tx.companion.findUnique({
         where: { heroId_role: { heroId, role } },
-        include: { perks: true },
+        include: { spends: true },
       });
       if (!comp) throw new NotFoundException('Companion not found');
-      if (comp.state === 'LOCKED') {
-        throw new ConflictException('Companion is locked');
-      }
-      if (comp.state === 'WORKING') {
-        throw new ConflictException('Already working');
-      }
-      if (comp.toolDurability <= 0) {
+      if (comp.state === 'LOCKED') throw new ConflictException('Locked');
+      if (comp.state === 'WORKING') throw new ConflictException('Already working');
+      if (comp.toolDurability <= 0)
         throw new BadRequestException('Tool broken — repair first');
-      }
 
-      const perkCodes = comp.perks.map((p) => p.code);
-      const pending = pendingPerkLevel(
-        role as CompanionRole,
-        comp.level,
-        comp.perks.map((p) => p.level),
-      );
-      if (pending !== null) {
-        throw new ConflictException(`Pending perk choice for level ${pending}`);
+      if (!trackUnlocked(role, comp.activeTrack, comp.level)) {
+        // fall back to starter track if somehow desynced
+        throw new BadRequestException('Active track is not unlocked');
       }
 
       const spec = COMPANION_CATALOG[role];
-      const mods = cycleModifiersFromPerks(perkCodes);
-      const durationSec = Math.max(
-        5,
-        Math.round(spec.baseCycleSeconds * mods.speedMultiplier),
-      );
+      const spends = this.spendsFrom(comp.spends);
+      const rt = runtimeFor(role, comp.activeTrack, spends);
+      if (!rt) throw new BadRequestException('Unknown track');
 
-      // Consume inputs upfront so cost is paid even if the player abandons.
+      // Consume inputs upfront
       if (spec.baseInputs) {
         for (const [type, base] of Object.entries(spec.baseInputs)) {
           if (!base) continue;
-          const amount = Math.max(1, Math.round(base * mods.inputMultiplier));
-          await this.resources.add(heroId, type as ResourceType, -amount, tx);
+          await this.resources.add(heroId, type as ResourceType, -base, tx);
         }
       }
 
       const now = new Date();
-      const finish = new Date(now.getTime() + durationSec * 1000);
+      const finish = new Date(now.getTime() + rt.effectiveSeconds * 1000);
       const updated = await tx.companion.update({
         where: { id: comp.id },
-        data: {
-          state: 'WORKING',
-          cycleStartAt: now,
-          cycleFinishAt: finish,
-        },
-        include: { perks: true },
+        data: { state: 'WORKING', cycleStartAt: now, cycleFinishAt: finish },
+        include: { spends: true },
       });
       return this.toDto(updated);
     });
   }
 
   // -----------------------------------------------------------------------
-  // Claim cycle (supports offline accumulation up to OFFLINE_CYCLE_CAP)
+  // Claim cycle (with offline accumulation up to OFFLINE_CYCLE_CAP)
   // -----------------------------------------------------------------------
 
   async claim(heroId: string, role: CompanionRole): Promise<Companion> {
     return this.prisma.$transaction(async (tx) => {
       const comp = await tx.companion.findUnique({
         where: { heroId_role: { heroId, role } },
-        include: { perks: true },
+        include: { spends: true },
       });
       if (!comp) throw new NotFoundException('Companion not found');
       if (comp.state !== 'WORKING' || !comp.cycleFinishAt || !comp.cycleStartAt) {
@@ -183,44 +202,26 @@ export class CompanionsService {
       }
 
       const now = new Date();
-      if (now < comp.cycleFinishAt) {
-        throw new BadRequestException('Cycle not finished yet');
-      }
+      if (now < comp.cycleFinishAt) throw new BadRequestException('Cycle not finished yet');
 
-      const spec = COMPANION_CATALOG[role];
-      const perkCodes = comp.perks.map((p) => p.code);
-      const mods = cycleModifiersFromPerks(perkCodes);
-      const durationSec = Math.max(
-        5,
-        Math.round(spec.baseCycleSeconds * mods.speedMultiplier),
-      );
+      const spends = this.spendsFrom(comp.spends);
+      const rt = runtimeFor(role, comp.activeTrack, spends);
+      if (!rt) throw new BadRequestException('Unknown track');
 
-      // How many full cycles accumulated since cycleStartAt? (capped)
-      const elapsedSec = Math.floor(
-        (now.getTime() - comp.cycleStartAt.getTime()) / 1000,
-      );
-      const rawCycles = Math.floor(elapsedSec / durationSec);
+      const elapsedSec = Math.floor((now.getTime() - comp.cycleStartAt.getTime()) / 1000);
+      const rawCycles = Math.floor(elapsedSec / rt.effectiveSeconds);
       const cycles = Math.max(1, Math.min(rawCycles, OFFLINE_CYCLE_CAP));
 
-      // Output: for now we credit resource-typed outputs. POTION / BREAD / ITEM
-      // outputs become active in Phase 3 (inventory) / 5 (forge); we no-op.
-      if (this.isResourceOutput(spec.baseOutput.type)) {
-        const amountPerCycle = Math.max(
-          1,
-          Math.round(spec.baseOutput.amount * mods.quantityMultiplier),
-        );
-        await this.resources.add(
-          heroId,
-          spec.baseOutput.type as ResourceType,
-          amountPerCycle * cycles,
-          tx,
-        );
+      const t = trackByCode(role, comp.activeTrack);
+      if (t && this.isResource(t.resource)) {
+        await this.resources.add(heroId, t.resource, rt.effectiveAmount * cycles, tx);
       }
 
-      // Durability wear and counters
-      const wear = Math.round(mods.durabilityWear * cycles);
+      // Durability wear per cycle (base 2)
+      const wear = 2 * cycles;
       const newCycles = comp.cyclesCompleted + cycles;
       const newLevel = levelForCycles(newCycles);
+      const pointsGained = Math.max(0, newLevel - comp.level);
 
       const updated = await tx.companion.update({
         where: { id: comp.id },
@@ -231,47 +232,44 @@ export class CompanionsService {
           cyclesCompleted: newCycles,
           level: newLevel,
           toolDurability: Math.max(0, comp.toolDurability - wear),
+          skillPointsUnspent: comp.skillPointsUnspent + pointsGained,
         },
-        include: { perks: true },
+        include: { spends: true },
       });
       return this.toDto(updated);
     });
   }
 
   // -----------------------------------------------------------------------
-  // Pick perk
+  // Spend a skill point (QUANTITY or SPEED on a specific track)
   // -----------------------------------------------------------------------
 
-  async pickPerk(
+  async spendSkill(
     heroId: string,
     role: CompanionRole,
-    level: number,
-    code: string,
+    trackCode: string,
+    axis: SkillAxis,
   ): Promise<Companion> {
-    const spec = COMPANION_CATALOG[role];
-    const tier = spec.perkTiers.find((t) => t.level === level);
-    if (!tier) throw new BadRequestException('Unknown perk tier');
-    if (!tier.choices.some((c) => c.code === code)) {
-      throw new BadRequestException('Invalid perk choice');
-    }
+    if (!VALID_AXES.includes(axis)) throw new BadRequestException('Invalid axis');
 
     return this.prisma.$transaction(async (tx) => {
       const comp = await tx.companion.findUnique({
         where: { heroId_role: { heroId, role } },
-        include: { perks: true },
+        include: { spends: true },
       });
       if (!comp) throw new NotFoundException('Companion not found');
-      if (comp.level < level) throw new BadRequestException('Level not reached');
-      if (comp.perks.some((p) => p.level === level)) {
-        throw new ConflictException('Already picked at that level');
-      }
+      if (comp.state === 'LOCKED') throw new ConflictException('Locked');
+      if (comp.skillPointsUnspent <= 0) throw new BadRequestException('No skill point available');
+      if (!trackUnlocked(role, trackCode, comp.level))
+        throw new BadRequestException('Track not unlocked');
 
-      await tx.companionPerkPick.create({
-        data: { companionId: comp.id, level, code },
+      await tx.companionSkillSpend.create({
+        data: { companionId: comp.id, trackCode, axis },
       });
-      const updated = await tx.companion.findUniqueOrThrow({
+      const updated = await tx.companion.update({
         where: { id: comp.id },
-        include: { perks: true },
+        data: { skillPointsUnspent: comp.skillPointsUnspent - 1 },
+        include: { spends: true },
       });
       return this.toDto(updated);
     });
@@ -285,31 +283,50 @@ export class CompanionsService {
     return Object.values(cost).every((v) => !v || v <= 0);
   }
 
-  private isResourceOutput(t: string): boolean {
-    return ['WOOD', 'IRON', 'LEATHER', 'HERB', 'GOLD', 'GEM'].includes(t);
+  private isResource(t: string): boolean {
+    // All resource outputs from tracks; crafter tracks output item-like tokens
+    // whose .resource entry is still a valid ResourceType (HERB/WHEAT/IRON),
+    // but we only credit the resource if the track truly produces it.
+    // For now, all producer tracks' resource = their output. Crafters have
+    // non-producer tracks (POTION_MINOR etc.) whose `resource` is an ingredient;
+    // we skip crediting because Phase 3 handles item inventory.
+    return [
+      'GOLD', 'IRON', 'COPPER', 'SILVER', 'GEM',
+      'WOOD', 'OAK', 'IRONWOOD',
+      'WHEAT', 'CORN',
+      'HERB', 'MUSHROOM', 'FLOWER',
+      'LEATHER',
+    ].includes(t);
+  }
+
+  private spendsFrom(
+    rows: Array<{ trackCode: string; axis: string }>,
+  ): CompanionSkillSpend[] {
+    return rows.map((r) => ({ trackCode: r.trackCode, axis: r.axis as SkillAxis }));
   }
 
   private toDto(
-    row: Prisma.CompanionGetPayload<{ include: { perks: true } }>,
+    row: Prisma.CompanionGetPayload<{ include: { spends: true } }>,
   ): Companion {
-    const perks = row.perks.map((p) => ({ level: p.level, code: p.code }));
-    const pending = pendingPerkLevel(
-      row.role as CompanionRole,
-      row.level,
-      perks.map((p) => p.level),
-    );
+    const role = row.role as CompanionRole;
+    const spec = COMPANION_CATALOG[role];
+    const spends = this.spendsFrom(row.spends);
+    const unlocked = unlockedTracks(spec, row.level).map((t) => t.code);
     return {
       id: row.id,
       heroId: row.heroId,
-      role: row.role as CompanionRole,
+      role,
       state: row.state as CompanionState,
       level: row.level,
+      cyclesCompleted: row.cyclesCompleted,
       toolDurability: row.toolDurability,
+      activeTrack: row.activeTrack || defaultTrackCode(role),
+      skillPointsUnspent: row.skillPointsUnspent,
       cycleStartAt: row.cycleStartAt?.toISOString() ?? null,
       cycleFinishAt: row.cycleFinishAt?.toISOString() ?? null,
       unlockedAt: row.unlockedAt?.toISOString() ?? null,
-      perks,
-      pendingPerkLevel: pending,
+      spends,
+      unlockedTrackCodes: unlocked,
     };
   }
 }
