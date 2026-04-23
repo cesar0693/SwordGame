@@ -10,8 +10,11 @@ import { ResourcesService } from '../resources/resources.service';
 import { CompanionsService } from '../companions/companions.service';
 import { ItemsService } from '../items/items.service';
 import {
+  ALLOCATION_VALUE_PER_POINT,
   BASE_STATS_BY_CLASS,
+  STAT_ALLOCATIONS,
   xpForLevel,
+  type AllocatableStat,
   type Hero,
   type HeroAppearance,
   type HeroClass,
@@ -80,6 +83,26 @@ export class HeroesService {
     const hero = await this.getByUser(userId);
     if (!hero) throw new NotFoundException('Hero not found');
     return hero;
+  }
+
+  async allocatePoint(userId: string, stat: AllocatableStat): Promise<Hero> {
+    if (!(STAT_ALLOCATIONS as readonly string[]).includes(stat)) {
+      throw new ConflictException('Invalid stat');
+    }
+    const hero = await this.prisma.hero.findUnique({ where: { userId } });
+    if (!hero) throw new NotFoundException('Hero not found');
+    if (hero.unallocatedPoints <= 0) {
+      throw new ConflictException('No unspent points');
+    }
+    const value = ALLOCATION_VALUE_PER_POINT[stat];
+    const updated = await this.prisma.hero.update({
+      where: { id: hero.id },
+      data: {
+        unallocatedPoints: { decrement: 1 },
+        [stat]: { increment: value },
+      },
+    });
+    return this.toDto(updated);
   }
 
   private async toDto(row: NonNullable<HeroRow>): Promise<Hero> {

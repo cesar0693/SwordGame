@@ -14,6 +14,7 @@ import { CampPanelComponent } from './panels/camp-panel.component';
 import { MarketPanelComponent } from './panels/market-panel.component';
 import { DailyClaimPanelComponent } from './panels/daily-claim-panel.component';
 import { InventoryPanelComponent } from './panels/inventory-panel.component';
+import { MissionsPanelComponent } from './panels/missions-panel.component';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -29,6 +30,7 @@ import { HeroCreationComponent } from './hero-creation.component';
     MarketPanelComponent,
     DailyClaimPanelComponent,
     InventoryPanelComponent,
+    MissionsPanelComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -108,6 +110,9 @@ import { HeroCreationComponent } from './hero-creation.component';
               (closed)="closePanel()"
               (openMarketSell)="openPanel('market')"
             />
+          }
+          @case ('missions') {
+            <sg-missions-panel (closed)="closePanel()" />
           }
         }
       } @else {

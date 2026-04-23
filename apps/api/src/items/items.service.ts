@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
+  CONSUMABLE_CATALOG,
   type HeroStats,
   type Item,
   type ItemKind,
@@ -76,6 +77,46 @@ export class ItemsService {
     if (item.onMarket)
       throw new ConflictException('Cancel the market listing first');
     await this.prisma.item.delete({ where: { id: itemId } });
+  }
+
+  /**
+   * Add N consumables of a given catalog code to a hero's inventory.
+   * Stacks onto an existing row (by name) when possible.
+   */
+  async grantConsumable(
+    heroId: string,
+    code: string,
+    amount: number,
+    tx: Tx = this.prisma,
+  ): Promise<Item> {
+    const spec = CONSUMABLE_CATALOG[code];
+    if (!spec) throw new Error(`Unknown consumable code: ${code}`);
+    if (amount <= 0) throw new Error('amount must be > 0');
+
+    // Try to stack onto an existing row with the same name (same spec).
+    const existing = await tx.item.findFirst({
+      where: { heroId, kind: 'CONSUMABLE', name: spec.name },
+    });
+    if (existing) {
+      const updated = await tx.item.update({
+        where: { id: existing.id },
+        data: { stack: existing.stack + amount },
+      });
+      return this.toDto(updated);
+    }
+    const created = await tx.item.create({
+      data: {
+        heroId,
+        kind: 'CONSUMABLE',
+        name: spec.name,
+        slot: null,
+        rarity: spec.rarity,
+        bonuses: {} as unknown as Prisma.InputJsonValue,
+        stack: amount,
+        effect: spec.effect as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return this.toDto(created);
   }
 
   /** Generate + persist one equipment item for the given blacksmith track. */

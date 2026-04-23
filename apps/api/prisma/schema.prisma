@@ -223,21 +223,8 @@ model Item {
 // Missions & combat (PvE)
 // --------------------------------------------------------------------------
 
-model Mission {
-  id                String       @id @default(cuid())
-  code              String       @unique
-  name              String
-  description       String
-  minLevel          Int          @default(1)
-  durationSeconds   Int
-  enemyStats        Json
-  rewardXp          Int
-  rewardGold        Int
-  rewardLoot        Json
-  createdAt         DateTime     @default(now())
-
-  runs              MissionRun[]
-}
+// Mission catalog lives in @swordgame/shared (packages/shared/src/missions.ts).
+// Runs reference missions by `missionCode`.
 
 enum MissionStatus {
   PENDING
@@ -246,16 +233,18 @@ enum MissionStatus {
 }
 
 model MissionRun {
-  id         String        @id @default(cuid())
-  heroId     String
-  hero       Hero          @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  missionId  String
-  mission    Mission       @relation(fields: [missionId], references: [id])
-  seed       String
-  startAt    DateTime      @default(now())
-  finishAt   DateTime
-  status     MissionStatus @default(PENDING)
-  report     Json?
+  id                  String        @id @default(cuid())
+  heroId              String
+  hero                Hero          @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  missionCode         String
+  seed                String
+  startAt             DateTime      @default(now())
+  finishAt            DateTime
+  status              MissionStatus @default(PENDING)
+  /** IDs of consumable items queued at launch (already decremented at start). */
+  consumableItemIds   Json          @default("[]")
+  /** Full combat report computed at launch and revealed at claim. */
+  report              Json?
 
   @@index([heroId, status])
 }

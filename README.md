@@ -270,10 +270,37 @@ Livré :
 
 - **ItemKind** : prêt pour les consommables (potions/pain) ; génération réelle et effets en Phase 4.
 
-### Phase 4 — Missions & combat PvE
-- Catalogue de missions (difficulté, durée, récompenses attendues).
-- Combat auto résolu server-side : seed RNG, tours simulés, log d'actions.
-- XP, level-up (courbe logarithmique), points de stats à dépenser.
+### Phase 4 — Missions, combat PvE & consommables ✅
+Livré :
+
+**Missions**
+- Catalogue statique dans `packages/shared/src/missions.ts` (6 missions, Niv 1 → 10 : Gobelin, Loups, Bandits, Mine, Sorcière, Dragonnet).
+- Lancement : durée en temps réel (60s → 10min selon difficulté), **un seul combat actif par héros**.
+- Résolution **au lancement** (snapshot des stats effectives + seed RNG) → anti-exploit : changer d'équipement pendant l'attente ne change rien. Le rapport est révélé au claim.
+
+**Combat engine** (`apps/api/src/missions/combat.engine.ts`)
+- Tours alternés, l'acteur le plus rapide frappe en premier.
+- Pour chaque coup : roll **échec critique** → 0 dégât · puis **esquive** du défenseur · puis dégâts = `max(1, atk - def/2)` × variance `0.85–1.15` · roll **critique** → × 2.
+- Max 60 tours (safety).
+
+**Consommables** (Alchimiste + Boulanger enfin fonctionnels)
+- Avant de partir, jusqu'à **3 consommables** choisis depuis l'inventaire. Décomptés immédiatement (escrow).
+- **Buffs** (`CAKE` : +5 ATQ pour 3 tours) → appliqués au tour 1 dans l'ordre de sélection.
+- **Heals** (`POTION_MINOR`, `POTION_GREATER`, `BREAD`) → auto-utilisés dès que PV du héros < 50 %.
+- **Mana** (`POTION_MANA`) → utile quand les sorts arrivent (Phase 6).
+- Crafters génèrent des items de type `CONSUMABLE` **stackés par nom** pour éviter la prolifération de lignes.
+
+**Récompenses & level-up**
+- Gold flat + XP flat sur victoire.
+- Drops de ressources avec chance + min/max.
+- Drops d'items via le générateur du Forgeron (même table de raretés).
+- Level-up : XP cumulée, courbe `100 × n^1.65` réutilisée. À chaque niveau : `+8 HP / +4 MP / +1 ATK / +1 DEF / +1 SPD` baseline + **3 points libres**.
+- Allocation de points depuis le panneau Profil (bouton `+` à côté de chaque stat allocable : +5 HP / +3 MP / +1 ATK/DEF/SPD par point).
+
+**UI**
+- Panneau Missions : mission active avec timer + bouton Récupérer, sinon liste du catalogue avec Niv requis/durée/rewards.
+- Phase de préparation : sélection des consommables (max 3, cap visible).
+- Rapport de combat (modal) : liste des actions tour par tour avec icônes (⚔ ✦ « + ↑ ☠) + section Récompenses avec level-up highlight.
 
 ### Phase 5 — Forge & amélioration
 - Recettes (inputs : ressources + éventuellement item) → item de sortie.

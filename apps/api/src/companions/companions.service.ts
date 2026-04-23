@@ -222,10 +222,15 @@ export class CompanionsService {
         for (let i = 0; i < rt.effectiveAmount * cycles; i += 1) {
           await this.items.generateForForgeTier(heroId, t.code, tx);
         }
+      } else if (t && (role === 'ALCHEMIST' || role === 'BAKER')) {
+        // Crafter tracks produce stacked CONSUMABLE items.
+        const total = rt.effectiveAmount * cycles;
+        if (total > 0) {
+          await this.items.grantConsumable(heroId, t.code, total, tx);
+        }
       } else if (t && this.isResource(t.resource)) {
         await this.resources.add(heroId, t.resource, rt.effectiveAmount * cycles, tx);
       }
-      // Alchemist/Baker consumable outputs remain stubbed until Phase 4.
 
       // Durability wear per cycle (base 2)
       const wear = 2 * cycles;

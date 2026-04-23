@@ -1,11 +1,13 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import type { Hero, HeroStats } from '@swordgame/shared';
+import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import type { AllocatableStat, Hero, HeroStats } from '@swordgame/shared';
+import { HeroesService } from '../../../core/heroes/heroes.service';
 import { PanelComponent } from '../ui/panel.component';
 
 interface StatRow {
   key: keyof HeroStats;
   label: string;
   pct?: boolean;
+  allocatable?: AllocatableStat;
 }
 
 @Component({
@@ -72,6 +74,17 @@ interface StatRow {
         background: #2a1b10; border: 1px solid #3a2a18; border-radius: 8px;
         color: var(--fg-muted); font-size: 0.9rem;
       }
+
+      .alloc-btn {
+        padding: 0.1rem 0.45rem;
+        font-size: 0.75rem;
+        background: #c77a2c;
+        color: #18100a;
+        border: none;
+        border-radius: 4px;
+        margin-left: 0.4rem;
+      }
+      .alloc-btn:disabled { opacity: 0.3; }
     `,
   ],
   template: `
@@ -96,7 +109,14 @@ interface StatRow {
             @let eff = hero().effectiveStats[row.key];
             @let delta = eff - base;
             <tr>
-              <td>{{ row.label }}</td>
+              <td>
+                {{ row.label }}
+                @if (row.allocatable && hero().unallocatedPoints > 0) {
+                  <button type="button" class="alloc-btn"
+                          [disabled]="busy()"
+                          (click)="allocate(row.allocatable)">+</button>
+                }
+              </td>
               <td>{{ format(base, row.pct) }}</td>
               <td class="bonus" [class.zero]="delta === 0">
                 {{ delta === 0 ? '—' : (delta > 0 ? '+' : '') + format(delta, row.pct) }}
@@ -117,7 +137,9 @@ interface StatRow {
 
       <div class="points">
         Points disponibles : <b>{{ hero().unallocatedPoints }}</b>
-        <br /><em>Allocation dispo après la Phase 4 (level-up via missions).</em>
+        @if (hero().unallocatedPoints > 0) {
+          — clique sur <b>+</b> à côté d'une stat pour le dépenser.
+        }
       </div>
     </sg-panel>
   `,
@@ -126,16 +148,29 @@ export class ProfilePanelComponent {
   readonly hero = input.required<Hero>();
   readonly closed = output<void>();
 
+  private readonly heroesSvc = inject(HeroesService);
+  protected readonly busy = signal(false);
+
   protected readonly rows: StatRow[] = [
-    { key: 'hp', label: 'Points de vie' },
-    { key: 'mp', label: 'Points de mana' },
-    { key: 'attack', label: 'Attaque' },
-    { key: 'defense', label: 'Défense' },
-    { key: 'speed', label: 'Vitesse' },
+    { key: 'hp', label: 'Points de vie', allocatable: 'hp' },
+    { key: 'mp', label: 'Points de mana', allocatable: 'mp' },
+    { key: 'attack', label: 'Attaque', allocatable: 'attack' },
+    { key: 'defense', label: 'Défense', allocatable: 'defense' },
+    { key: 'speed', label: 'Vitesse', allocatable: 'speed' },
     { key: 'critChance', label: 'Critique', pct: true },
     { key: 'critFailChance', label: 'Échec crit', pct: true },
     { key: 'dodgeChance', label: 'Esquive', pct: true },
   ];
+
+  protected async allocate(stat: AllocatableStat): Promise<void> {
+    if (this.hero().unallocatedPoints <= 0) return;
+    this.busy.set(true);
+    try {
+      await this.heroesSvc.allocate(stat);
+    } finally {
+      this.busy.set(false);
+    }
+  }
 
   protected format(value: number, pct?: boolean): string {
     if (pct) return `${Math.round(value * 100)}%`;

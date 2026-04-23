@@ -61,3 +61,44 @@ export const BASE_STATS_BY_CLASS: Record<HeroClass, HeroStats> = {
 export function xpForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.65));
 }
+
+/** Stat gains per level-up (baseline, before spending free points). */
+export const LEVEL_UP_GAINS: HeroStats = {
+  hp: 8,
+  mp: 4,
+  attack: 1,
+  defense: 1,
+  speed: 1,
+  critChance: 0,
+  critFailChance: 0,
+  dodgeChance: 0,
+};
+
+/** Free stat points awarded per level-up. */
+export const LEVEL_UP_FREE_POINTS = 3;
+
+export const STAT_ALLOCATIONS = [
+  'hp',
+  'mp',
+  'attack',
+  'defense',
+  'speed',
+] as const;
+export type AllocatableStat = (typeof STAT_ALLOCATIONS)[number];
+
+export const ALLOCATION_COST_PER_POINT: Record<AllocatableStat, number> = {
+  hp: 1,     // +5 HP per point (applied at server)
+  mp: 1,     // +3 MP per point
+  attack: 1, // +1 ATK per point
+  defense: 1,
+  speed: 1,
+};
+
+/** How much a stat gains per spent free point. */
+export const ALLOCATION_VALUE_PER_POINT: Record<AllocatableStat, number> = {
+  hp: 5,
+  mp: 3,
+  attack: 1,
+  defense: 1,
+  speed: 1,
+};
