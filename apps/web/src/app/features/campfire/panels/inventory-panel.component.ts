@@ -106,6 +106,16 @@ import { PanelComponent } from '../ui/panel.component';
       }
       .item .actions button.danger:hover { background: #3a1414; }
 
+      .item.on-market { opacity: 0.7; }
+      .item .market-badge {
+        font-size: 0.7rem;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        background: #3a2413;
+        color: #ffd28a;
+        border: 1px solid #6b4a26;
+      }
+
       .empty-state { color: var(--fg-muted); text-align: center; padding: 1.5rem 0; }
       .error { color: var(--danger); font-size: 0.85rem; margin-top: 0.3rem; }
     `,
@@ -141,9 +151,10 @@ import { PanelComponent } from '../ui/panel.component';
       } @else {
         <div class="inventory-grid">
           @for (it of unequipped(); track it.id) {
-            <div class="item" [style.border-left-color]="rarityColor(it)">
+            <div class="item" [class.on-market]="it.onMarket" [style.border-left-color]="rarityColor(it)">
               <div class="title">
                 <span>{{ it.name }}</span>
+                @if (it.onMarket) { <span class="market-badge">Au marché</span> }
               </div>
               <div class="sub">
                 {{ slotLabel(it.slot) }} · {{ rarityLabel(it) }}
@@ -154,21 +165,26 @@ import { PanelComponent } from '../ui/panel.component';
                 }
               </div>
               <div class="actions">
-                <button
-                  type="button"
-                  [disabled]="busy() === it.id || !it.slot"
-                  (click)="equip(it)"
-                >
-                  Équiper
-                </button>
-                <button
-                  type="button"
-                  class="danger"
-                  [disabled]="busy() === it.id"
-                  (click)="drop(it)"
-                >
-                  Jeter
-                </button>
+                @if (it.onMarket) {
+                  <button type="button" (click)="goToMarket()">Voir au marché</button>
+                } @else {
+                  <button
+                    type="button"
+                    [disabled]="busy() === it.id || !it.slot"
+                    (click)="equip(it)"
+                  >
+                    Équiper
+                  </button>
+                  <button type="button" (click)="sell(it)">Vendre</button>
+                  <button
+                    type="button"
+                    class="danger"
+                    [disabled]="busy() === it.id"
+                    (click)="drop(it)"
+                  >
+                    Jeter
+                  </button>
+                }
               </div>
             </div>
           }
@@ -186,6 +202,7 @@ export class InventoryPanelComponent implements OnInit {
   private readonly heroesSvc = inject(HeroesService);
 
   readonly closed = output<void>();
+  readonly openMarketSell = output<void>();
 
   readonly items = this.itemsSvc.items;
   readonly slots = ITEM_SLOTS;
@@ -255,6 +272,15 @@ export class InventoryPanelComponent implements OnInit {
     } finally {
       this.busy.set(null);
     }
+  }
+
+  protected sell(_it: Item): void {
+    // Ask the parent to open the Market panel on the Sell/Item tab.
+    this.openMarketSell.emit();
+  }
+
+  protected goToMarket(): void {
+    this.openMarketSell.emit();
   }
 
   protected async drop(it: Item): Promise<void> {

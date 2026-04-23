@@ -104,7 +104,10 @@ import { HeroCreationComponent } from './hero-creation.component';
             <sg-daily-claim-panel (closed)="closePanel()" />
           }
           @case ('inventory') {
-            <sg-inventory-panel (closed)="closePanel()" />
+            <sg-inventory-panel
+              (closed)="closePanel()"
+              (openMarketSell)="openPanel('market')"
+            />
           }
         }
       } @else {

@@ -2,6 +2,7 @@ import {
   IsEnum,
   IsInt,
   IsOptional,
+  IsString,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -36,6 +37,27 @@ export class CreateResourceListingDto {
   buyoutGold?: number;
 
   @ValidateIf((o: CreateResourceListingDto) => o.listingType === 'AUCTION')
+  @IsEnum(AUCTION_DURATIONS_HOURS)
+  durationHours?: AuctionDurationHours;
+}
+
+export class CreateItemListingDto {
+  @IsEnum(LISTING_TYPES)
+  listingType!: MarketListingType;
+
+  @IsString()
+  itemId!: string;
+
+  @IsInt()
+  @Min(1)
+  priceGold!: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  buyoutGold?: number;
+
+  @ValidateIf((o: CreateItemListingDto) => o.listingType === 'AUCTION')
   @IsEnum(AUCTION_DURATIONS_HOURS)
   durationHours?: AuctionDurationHours;
 }

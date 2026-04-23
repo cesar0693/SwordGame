@@ -196,23 +196,27 @@ enum ItemKind {
 }
 
 model Item {
-  id               String     @id @default(cuid())
+  id               String         @id @default(cuid())
   heroId           String
-  hero             Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  kind             ItemKind   @default(EQUIPMENT)
+  hero             Hero           @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  kind             ItemKind       @default(EQUIPMENT)
   name             String
   slot             ItemSlot?
   rarity           ItemRarity
-  upgradeLevel     Int        @default(0)
-  bonuses          Json       @default("{}")
-  equipped         Boolean    @default(false)
-  stack            Int        @default(1)
+  upgradeLevel     Int            @default(0)
+  bonuses          Json           @default("{}")
+  equipped         Boolean        @default(false)
+  onMarket         Boolean        @default(false)
+  stack            Int            @default(1)
   effect           Json?
   durationSeconds  Int?
-  createdAt        DateTime   @default(now())
+  createdAt        DateTime       @default(now())
+
+  marketListing    MarketListing?
 
   @@index([heroId, slot, equipped])
   @@index([heroId, kind])
+  @@index([heroId, onMarket])
 }
 
 // --------------------------------------------------------------------------
@@ -373,6 +377,7 @@ model MarketListing {
   resourceType     ResourceType?
   amount           Int?
   itemId           String?            @unique
+  item             Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
   priceGold        Int
   buyoutGold       Int?
   highestBid       Int?

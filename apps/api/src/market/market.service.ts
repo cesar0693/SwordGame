@@ -10,7 +10,11 @@ import {
   AUCTION_DURATIONS_HOURS,
   netSellerGold,
   type AuctionDurationHours,
+  type ItemRarity,
+  type ItemSlot,
+  type ItemStatBonus,
   type MarketAssetType,
+  type MarketItemSnapshot,
   type MarketListing,
   type MarketListingState,
   type MarketListingType,
@@ -21,10 +25,36 @@ import { ResourcesService } from '../resources/resources.service';
 
 type Tx = Prisma.TransactionClient;
 
+const LISTING_INCLUDE = {
+  sellerHero: { select: { name: true } },
+  item: {
+    select: {
+      id: true,
+      name: true,
+      slot: true,
+      rarity: true,
+      bonuses: true,
+      upgradeLevel: true,
+    },
+  },
+} as const;
+
+type ListingWithIncludes = Prisma.MarketListingGetPayload<{
+  include: typeof LISTING_INCLUDE;
+}>;
+
 interface CreateResourceListingInput {
   listingType: MarketListingType;
   resourceType: ResourceType;
   amount: number;
+  priceGold: number;
+  buyoutGold?: number | null;
+  durationHours?: AuctionDurationHours;
+}
+
+interface CreateItemListingInput {
+  listingType: MarketListingType;
+  itemId: string;
   priceGold: number;
   buyoutGold?: number | null;
   durationHours?: AuctionDurationHours;
@@ -42,6 +72,7 @@ export class MarketService {
   // -----------------------------------------------------------------------
 
   async listActive(filter?: {
+    assetType?: MarketAssetType;
     resourceType?: ResourceType;
     listingType?: MarketListingType;
   }): Promise<MarketListing[]> {
@@ -49,10 +80,11 @@ export class MarketService {
     const rows = await this.prisma.marketListing.findMany({
       where: {
         state: 'ACTIVE',
+        ...(filter?.assetType ? { assetType: filter.assetType } : {}),
         ...(filter?.resourceType ? { resourceType: filter.resourceType } : {}),
         ...(filter?.listingType ? { listingType: filter.listingType } : {}),
       },
-      include: { sellerHero: { select: { name: true } } },
+      include: LISTING_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -62,7 +94,7 @@ export class MarketService {
   async listMine(heroId: string): Promise<MarketListing[]> {
     const rows = await this.prisma.marketListing.findMany({
       where: { sellerHeroId: heroId },
-      include: { sellerHero: { select: { name: true } } },
+      include: LISTING_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -77,26 +109,15 @@ export class MarketService {
     heroId: string,
     input: CreateResourceListingInput,
   ): Promise<MarketListing> {
+    this.validateCommon(input);
     if (input.amount <= 0) throw new BadRequestException('amount must be > 0');
-    if (input.priceGold <= 0) throw new BadRequestException('price must be > 0');
     if (input.resourceType === 'GOLD') {
       throw new BadRequestException('Cannot list gold on the market');
     }
-    if (input.listingType === 'AUCTION') {
-      if (!input.durationHours || !AUCTION_DURATIONS_HOURS.includes(input.durationHours)) {
-        throw new BadRequestException('Invalid auction duration');
-      }
-      if (input.buyoutGold && input.buyoutGold < input.priceGold) {
-        throw new BadRequestException('Buyout must be >= start price');
-      }
-    }
 
-    const durationHours =
-      input.listingType === 'AUCTION' ? input.durationHours! : 24 * 3;
-    const expiresAt = new Date(Date.now() + durationHours * 3600 * 1000);
+    const expiresAt = this.expiresAtFor(input);
 
     return this.prisma.$transaction(async (tx) => {
-      // Escrow the resources
       await this.resources.add(heroId, input.resourceType, -input.amount, tx);
 
       const row = await tx.marketListing.create({
@@ -110,7 +131,56 @@ export class MarketService {
           buyoutGold: input.buyoutGold ?? null,
           expiresAt,
         },
-        include: { sellerHero: { select: { name: true } } },
+        include: LISTING_INCLUDE,
+      });
+      return this.toDto(row);
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Create an item listing
+  // -----------------------------------------------------------------------
+
+  async createItemListing(
+    heroId: string,
+    input: CreateItemListingInput,
+  ): Promise<MarketListing> {
+    this.validateCommon(input);
+
+    const expiresAt = this.expiresAtFor(input);
+
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.findUnique({ where: { id: input.itemId } });
+      if (!item || item.heroId !== heroId) {
+        throw new NotFoundException('Item not found');
+      }
+      if (item.kind !== 'EQUIPMENT') {
+        throw new BadRequestException('Only equipment can be listed for now');
+      }
+      if (item.equipped) {
+        throw new ConflictException('Unequip the item before listing it');
+      }
+      if (item.onMarket) {
+        throw new ConflictException('Item is already listed');
+      }
+
+      // Mark as onMarket (escrow). Keep ownership on the seller until sale.
+      await tx.item.update({
+        where: { id: item.id },
+        data: { onMarket: true },
+      });
+
+      const row = await tx.marketListing.create({
+        data: {
+          sellerHeroId: heroId,
+          listingType: input.listingType,
+          assetType: 'ITEM',
+          itemId: item.id,
+          priceGold: input.priceGold,
+          buyoutGold: input.buyoutGold ?? null,
+          expiresAt,
+        },
+        include: LISTING_INCLUDE,
       });
       return this.toDto(row);
     });
@@ -124,7 +194,7 @@ export class MarketService {
     return this.prisma.$transaction(async (tx) => {
       const listing = await tx.marketListing.findUnique({
         where: { id: listingId },
-        include: { sellerHero: { select: { name: true } } },
+        include: LISTING_INCLUDE,
       });
       if (!listing) throw new NotFoundException('Listing not found');
       if (listing.state !== 'ACTIVE') throw new ConflictException('Listing not active');
@@ -134,8 +204,6 @@ export class MarketService {
       if (listing.listingType === 'INSTANT_BUY') {
         return this.settleBuy(tx, listing, heroId, listing.priceGold);
       }
-
-      // Auction: buyout path only (bidding uses placeBid/closeAuction)
       if (!listing.buyoutGold) {
         throw new BadRequestException('This auction has no buyout');
       }
@@ -157,7 +225,7 @@ export class MarketService {
     return this.prisma.$transaction(async (tx) => {
       const listing = await tx.marketListing.findUnique({
         where: { id: listingId },
-        include: { sellerHero: { select: { name: true } } },
+        include: LISTING_INCLUDE,
       });
       if (!listing) throw new NotFoundException('Listing not found');
       if (listing.state !== 'ACTIVE') throw new ConflictException('Listing not active');
@@ -175,7 +243,6 @@ export class MarketService {
         );
       }
 
-      // Escrow: debit the new bidder, refund the previous top bidder.
       await this.resources.add(heroId, 'GOLD', -amount, tx);
       if (listing.highestBidderId && listing.highestBid) {
         await this.resources.add(listing.highestBidderId, 'GOLD', listing.highestBid, tx);
@@ -185,7 +252,6 @@ export class MarketService {
         data: { listingId, bidderHeroId: heroId, amount },
       });
 
-      // Instant buyout via bid >= buyoutGold → close immediately.
       if (listing.buyoutGold && amount >= listing.buyoutGold) {
         return this.settleAuction(tx, listing.id, heroId, amount);
       }
@@ -193,7 +259,7 @@ export class MarketService {
       const updated = await tx.marketListing.update({
         where: { id: listing.id },
         data: { highestBid: amount, highestBidderId: heroId },
-        include: { sellerHero: { select: { name: true } } },
+        include: LISTING_INCLUDE,
       });
       return this.toDto(updated);
     });
@@ -207,7 +273,7 @@ export class MarketService {
     return this.prisma.$transaction(async (tx) => {
       const listing = await tx.marketListing.findUnique({
         where: { id: listingId },
-        include: { sellerHero: { select: { name: true } } },
+        include: LISTING_INCLUDE,
       });
       if (!listing) throw new NotFoundException('Listing not found');
       if (listing.sellerHeroId !== heroId) throw new ForbiddenException();
@@ -216,20 +282,12 @@ export class MarketService {
         throw new ConflictException('Cannot cancel an auction with bids');
       }
 
-      // Refund escrowed resources to seller.
-      if (listing.assetType === 'RESOURCE' && listing.resourceType && listing.amount) {
-        await this.resources.add(
-          heroId,
-          listing.resourceType as ResourceType,
-          listing.amount,
-          tx,
-        );
-      }
+      await this.refundSellerEscrow(tx, listing);
 
       const updated = await tx.marketListing.update({
         where: { id: listing.id },
         data: { state: 'CANCELLED' },
-        include: { sellerHero: { select: { name: true } } },
+        include: LISTING_INCLUDE,
       });
       return this.toDto(updated);
     });
@@ -237,13 +295,18 @@ export class MarketService {
 
   // -----------------------------------------------------------------------
   // Expire stale listings + settle any winning auctions.
-  // Idempotent; run on every read.
   // -----------------------------------------------------------------------
 
   async expireStale(): Promise<void> {
     const now = new Date();
     const stale = await this.prisma.marketListing.findMany({
       where: { state: 'ACTIVE', expiresAt: { lte: now } },
+      select: {
+        id: true,
+        listingType: true,
+        highestBid: true,
+        highestBidderId: true,
+      },
     });
     for (const listing of stale) {
       try {
@@ -259,65 +322,42 @@ export class MarketService {
               listing.highestBidderId,
               listing.highestBid,
             );
-          } else {
-            // Refund escrow to seller
-            if (
-              listing.assetType === 'RESOURCE' &&
-              listing.resourceType &&
-              listing.amount
-            ) {
-              await this.resources.add(
-                listing.sellerHeroId,
-                listing.resourceType as ResourceType,
-                listing.amount,
-                tx,
-              );
-            }
-            await tx.marketListing.update({
-              where: { id: listing.id },
-              data: { state: 'EXPIRED' },
-            });
+            return;
           }
+          const full = await tx.marketListing.findUnique({
+            where: { id: listing.id },
+            include: LISTING_INCLUDE,
+          });
+          if (full) await this.refundSellerEscrow(tx, full);
+          await tx.marketListing.update({
+            where: { id: listing.id },
+            data: { state: 'EXPIRED' },
+          });
         });
       } catch {
-        // swallow; a failed row won't block the read
+        // swallow — one failed row doesn't block the read
       }
     }
   }
 
   // -----------------------------------------------------------------------
-  // Private: settlement helpers
+  // Private: settlement + escrow helpers
   // -----------------------------------------------------------------------
 
   private async settleBuy(
     tx: Tx,
-    listing: Awaited<ReturnType<PrismaService['marketListing']['findUnique']>>,
+    listing: ListingWithIncludes,
     buyerId: string,
     price: number,
   ): Promise<MarketListing> {
-    if (!listing) throw new NotFoundException();
-    // Debit buyer gold
     await this.resources.add(buyerId, 'GOLD', -price, tx);
-    // Transfer asset to buyer
-    if (listing.assetType === 'RESOURCE' && listing.resourceType && listing.amount) {
-      await this.resources.add(
-        buyerId,
-        listing.resourceType as ResourceType,
-        listing.amount,
-        tx,
-      );
-    }
-    // Credit seller minus tax
+    await this.transferAssetToBuyer(tx, listing, buyerId);
     await this.resources.add(listing.sellerHeroId, 'GOLD', netSellerGold(price), tx);
 
     const updated = await tx.marketListing.update({
       where: { id: listing.id },
-      data: {
-        state: 'SOLD',
-        buyerHeroId: buyerId,
-        soldAt: new Date(),
-      },
-      include: { sellerHero: { select: { name: true } } },
+      data: { state: 'SOLD', buyerHeroId: buyerId, soldAt: new Date() },
+      include: LISTING_INCLUDE,
     });
     return this.toDto(updated);
   }
@@ -330,38 +370,99 @@ export class MarketService {
   ): Promise<MarketListing> {
     const listing = await tx.marketListing.findUnique({
       where: { id: listingId },
-      include: { sellerHero: { select: { name: true } } },
+      include: LISTING_INCLUDE,
     });
     if (!listing) throw new NotFoundException();
 
-    // Gold was already escrowed by the bid. Transfer asset + credit seller.
-    if (listing.assetType === 'RESOURCE' && listing.resourceType && listing.amount) {
-      await this.resources.add(
-        winnerId,
-        listing.resourceType as ResourceType,
-        listing.amount,
-        tx,
-      );
-    }
+    await this.transferAssetToBuyer(tx, listing, winnerId);
     await this.resources.add(listing.sellerHeroId, 'GOLD', netSellerGold(price), tx);
 
     const updated = await tx.marketListing.update({
       where: { id: listing.id },
-      data: {
-        state: 'SOLD',
-        buyerHeroId: winnerId,
-        soldAt: new Date(),
-      },
-      include: { sellerHero: { select: { name: true } } },
+      data: { state: 'SOLD', buyerHeroId: winnerId, soldAt: new Date() },
+      include: LISTING_INCLUDE,
     });
     return this.toDto(updated);
   }
 
-  private toDto(
-    row: Prisma.MarketListingGetPayload<{
-      include: { sellerHero: { select: { name: true } } };
-    }>,
-  ): MarketListing {
+  private async transferAssetToBuyer(
+    tx: Tx,
+    listing: ListingWithIncludes,
+    buyerId: string,
+  ): Promise<void> {
+    if (listing.assetType === 'RESOURCE' && listing.resourceType && listing.amount) {
+      await this.resources.add(
+        buyerId,
+        listing.resourceType as ResourceType,
+        listing.amount,
+        tx,
+      );
+      return;
+    }
+    if (listing.assetType === 'ITEM' && listing.itemId) {
+      await tx.item.update({
+        where: { id: listing.itemId },
+        data: { heroId: buyerId, onMarket: false, equipped: false },
+      });
+    }
+  }
+
+  private async refundSellerEscrow(
+    tx: Tx,
+    listing: ListingWithIncludes,
+  ): Promise<void> {
+    if (listing.assetType === 'RESOURCE' && listing.resourceType && listing.amount) {
+      await this.resources.add(
+        listing.sellerHeroId,
+        listing.resourceType as ResourceType,
+        listing.amount,
+        tx,
+      );
+      return;
+    }
+    if (listing.assetType === 'ITEM' && listing.itemId) {
+      await tx.item.update({
+        where: { id: listing.itemId },
+        data: { onMarket: false },
+      });
+    }
+  }
+
+  private validateCommon(input: {
+    listingType: MarketListingType;
+    priceGold: number;
+    buyoutGold?: number | null;
+    durationHours?: AuctionDurationHours;
+  }): void {
+    if (input.priceGold <= 0) throw new BadRequestException('price must be > 0');
+    if (input.listingType === 'AUCTION') {
+      if (!input.durationHours || !AUCTION_DURATIONS_HOURS.includes(input.durationHours)) {
+        throw new BadRequestException('Invalid auction duration');
+      }
+      if (input.buyoutGold && input.buyoutGold < input.priceGold) {
+        throw new BadRequestException('Buyout must be >= start price');
+      }
+    }
+  }
+
+  private expiresAtFor(input: {
+    listingType: MarketListingType;
+    durationHours?: AuctionDurationHours;
+  }): Date {
+    const hours = input.listingType === 'AUCTION' ? input.durationHours! : 24 * 3;
+    return new Date(Date.now() + hours * 3600 * 1000);
+  }
+
+  private toDto(row: ListingWithIncludes): MarketListing {
+    const snap: MarketItemSnapshot | null = row.item
+      ? {
+          name: row.item.name,
+          slot: (row.item.slot as ItemSlot | null) ?? null,
+          rarity: row.item.rarity as ItemRarity,
+          bonuses: (row.item.bonuses ?? {}) as ItemStatBonus,
+          upgradeLevel: row.item.upgradeLevel,
+        }
+      : null;
     return {
       id: row.id,
       sellerHeroId: row.sellerHeroId,
@@ -371,6 +472,7 @@ export class MarketService {
       resourceType: (row.resourceType as ResourceType | null) ?? null,
       amount: row.amount,
       itemId: row.itemId,
+      item: snap,
       priceGold: row.priceGold,
       buyoutGold: row.buyoutGold,
       highestBid: row.highestBid,

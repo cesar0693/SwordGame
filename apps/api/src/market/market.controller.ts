@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
+  type MarketAssetType,
   type MarketListingType,
   type ResourceType,
   RESOURCE_TYPES,
@@ -18,7 +19,11 @@ import {
 import { CurrentUser, JwtPayload } from '../common/current-user.decorator';
 import { HeroesService } from '../heroes/heroes.service';
 import { MarketService } from './market.service';
-import { CreateResourceListingDto, PlaceBidDto } from './dto';
+import {
+  CreateItemListingDto,
+  CreateResourceListingDto,
+  PlaceBidDto,
+} from './dto';
 
 @Controller('market')
 @UseGuards(AuthGuard('jwt'))
@@ -30,10 +35,12 @@ export class MarketController {
 
   @Get('listings')
   async listings(
+    @Query('assetType') assetType?: string,
     @Query('resourceType') resourceType?: string,
     @Query('listingType') listingType?: string,
   ) {
     return this.market.listActive({
+      assetType: this.parseAsset(assetType),
       resourceType: this.parseResource(resourceType),
       listingType: this.parseType(listingType),
     });
@@ -52,6 +59,15 @@ export class MarketController {
   ) {
     const hero = await this.requireHero(user.sub);
     return this.market.createResourceListing(hero.id, dto);
+  }
+
+  @Post('listings/item')
+  async createItemListing(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateItemListingDto,
+  ) {
+    const hero = await this.requireHero(user.sub);
+    return this.market.createItemListing(hero.id, dto);
   }
 
   @Post('listings/:id/buy')
@@ -90,6 +106,11 @@ export class MarketController {
 
   private parseType(raw?: string): MarketListingType | undefined {
     if (raw === 'INSTANT_BUY' || raw === 'AUCTION') return raw;
+    return undefined;
+  }
+
+  private parseAsset(raw?: string): MarketAssetType | undefined {
+    if (raw === 'RESOURCE' || raw === 'ITEM') return raw;
     return undefined;
   }
 }

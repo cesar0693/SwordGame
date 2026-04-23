@@ -2,7 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type {
+  CreateItemListingRequest,
   CreateResourceListingRequest,
+  MarketAssetType,
   MarketListing,
   MarketListingType,
   ResourceType,
@@ -18,10 +20,12 @@ export class MarketService {
   readonly mine = signal<MarketListing[]>([]);
 
   async loadListings(filter?: {
+    assetType?: MarketAssetType;
     resourceType?: ResourceType;
     listingType?: MarketListingType;
   }): Promise<MarketListing[]> {
     const params = new URLSearchParams();
+    if (filter?.assetType) params.set('assetType', filter.assetType);
     if (filter?.resourceType) params.set('resourceType', filter.resourceType);
     if (filter?.listingType) params.set('listingType', filter.listingType);
     const qs = params.toString();
@@ -40,6 +44,12 @@ export class MarketService {
   async createResourceListing(req: CreateResourceListingRequest): Promise<MarketListing> {
     return firstValueFrom(
       this.http.post<MarketListing>(`${this.base}/listings/resource`, req),
+    );
+  }
+
+  async createItemListing(req: CreateItemListingRequest): Promise<MarketListing> {
+    return firstValueFrom(
+      this.http.post<MarketListing>(`${this.base}/listings/item`, req),
     );
   }
 

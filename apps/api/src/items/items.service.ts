@@ -40,6 +40,8 @@ export class ItemsService {
         throw new BadRequestException('Only equipment can be equipped');
       }
       if (item.equipped) throw new ConflictException('Already equipped');
+      if (item.onMarket)
+        throw new ConflictException('Item is listed on the market');
 
       // unequip any existing item in that slot
       await tx.item.updateMany({
@@ -71,6 +73,8 @@ export class ItemsService {
     const item = await this.prisma.item.findUnique({ where: { id: itemId } });
     if (!item || item.heroId !== heroId) throw new NotFoundException('Item not found');
     if (item.equipped) throw new ConflictException('Unequip first');
+    if (item.onMarket)
+      throw new ConflictException('Cancel the market listing first');
     await this.prisma.item.delete({ where: { id: itemId } });
   }
 
@@ -136,6 +140,7 @@ export class ItemsService {
     upgradeLevel: number;
     bonuses: unknown;
     equipped: boolean;
+    onMarket: boolean;
     stack: number;
     effect: unknown;
     durationSeconds: number | null;
@@ -151,6 +156,7 @@ export class ItemsService {
       upgradeLevel: row.upgradeLevel,
       bonuses: (row.bonuses ?? {}) as ItemStatBonus,
       equipped: row.equipped,
+      onMarket: row.onMarket,
       stack: row.stack,
       effect: (row.effect as Record<string, unknown> | null) ?? null,
       durationSeconds: row.durationSeconds,

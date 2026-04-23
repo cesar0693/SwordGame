@@ -37,6 +37,7 @@ export interface Item {
   upgradeLevel: number;
   bonuses: ItemStatBonus;
   equipped: boolean;
+  onMarket: boolean;
   stack: number;
   effect: Record<string, unknown> | null;
   durationSeconds: number | null;

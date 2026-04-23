@@ -252,13 +252,22 @@ Livré dans ce commit. Streak basé sur le jour UTC :
 - Panneau s'ouvre automatiquement à la première connexion du jour si un claim est disponible.
 
 ### Phase 3 — Inventaire & équipement ✅
-Livré dans ce commit :
+Livré :
 - **Items d'équipement** sur 7 slots (`WEAPON`, `OFFHAND`, `HELMET`, `ARMOR`, `BOOTS`, `RING`, `AMULET`) avec 5 raretés (`COMMON` → `LEGENDARY`).
 - **Génération par le Forgeron** : chaque cycle de `IRON_GEAR` / `COPPER_GEAR` / `SILVER_GEAR` produit 1 item roulé aléatoirement (slot + rareté pondérée 90/8/1.5/0.4/0.1%, bonus scalés par tier × rareté).
 - **Slots autorisés par type de bonus** : une arme roll attaque/crit/vitesse, une armure roll PV/déf/esquive, etc.
-- **Stats effectives** : le Hero DTO expose maintenant `stats` (base) **et** `effectiveStats` (base + équipement). Le panneau Profil affiche les trois colonnes (Base / Bonus / Effectif).
-- **Panneau Inventaire** : vue équipés par slot + sac avec équiper/déséquiper/jeter. Équiper dans un slot déjà occupé déséquipe l'ancien automatiquement.
+- **Stats effectives** : le Hero DTO expose `stats` (base) **et** `effectiveStats` (base + équipement). Le panneau Profil affiche les colonnes Base / Bonus / Effectif.
+- **Panneau Inventaire** : vue équipés par slot + sac, boutons Équiper / Vendre / Jeter. Équiper dans un slot occupé déséquipe l'ancien automatiquement.
 - **Réparation des outils** : bouton sur chaque carte de compagnon. Coût = `ceil(missing_durability / 10)` en fer.
+
+#### Marché d'équipement
+- Mise en vente d'items **Équipement** (achat immédiat ou enchère, mêmes durées 1h/8h/24h que les ressources).
+- **Escrow par flag** : un item mis en vente a `onMarket=true` → il ne peut plus être équipé, jeté ou remis en vente tant que l'offre est active.
+- Transfert à la vente : `heroId` de l'item passe au vendeur gagnant, `onMarket=false`, `equipped=false`.
+- Annulation possible seulement avant la première enchère ; à l'annulation/expiration, `onMarket=false` côté vendeur.
+- Les bonus de l'item sont **embarqués dans l'offre** (`MarketItemSnapshot`) : l'acheteur voit les stats sans round-trip supplémentaire.
+- Taxe de 5% appliquée identiquement aux items.
+
 - **ItemKind** : prêt pour les consommables (potions/pain) ; génération réelle et effets en Phase 4.
 
 ### Phase 4 — Missions & combat PvE
