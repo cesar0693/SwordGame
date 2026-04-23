@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
 import { CompanionsService } from '../companions/companions.service';
 import { ItemsService } from '../items/items.service';
+import { SpellsService } from '../spells/spells.service';
 import {
   ALLOCATION_VALUE_PER_POINT,
   BASE_STATS_BY_CLASS,
@@ -32,6 +33,7 @@ export class HeroesService {
     private readonly companions: CompanionsService,
     @Inject(forwardRef(() => ItemsService))
     private readonly items: ItemsService,
+    private readonly spells: SpellsService,
   ) {}
 
   async create(
@@ -68,6 +70,7 @@ export class HeroesService {
       });
       await this.resources.seed(created.id, tx);
       await this.companions.seed(created.id, tx);
+      await this.spells.autoLearnForLevel(created.id, created.heroClass as HeroClass, created.level, tx);
       return created;
     });
 

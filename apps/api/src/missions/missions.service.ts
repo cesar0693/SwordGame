@@ -11,18 +11,22 @@ import {
   LEVEL_UP_GAINS,
   MISSION_CATALOG,
   missionByCode,
+  spellByCode,
   xpForLevel,
   type CombatReport,
   type CombatRewardItem,
   type CombatRewards,
   type ConsumableEffect,
+  type HeroClass,
   type Item,
   type MissionDef,
   type ResourceType,
+  type SpellDef,
 } from '@swordgame/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
+import { SpellsService } from '../spells/spells.service';
 import { simulateCombat } from './combat.engine';
 
 type Tx = Prisma.TransactionClient;
@@ -41,6 +45,7 @@ export class MissionsService {
     private readonly prisma: PrismaService,
     private readonly items: ItemsService,
     private readonly resources: ResourcesService,
+    private readonly spells: SpellsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -151,12 +156,19 @@ export class MissionsService {
         bonuses,
       );
 
+      // Resolve equipped spells for this run (snapshot at launch).
+      const equippedCodes = await this.spells.equippedCodes(heroId, tx);
+      const spellDefs: SpellDef[] = equippedCodes
+        .map((c) => spellByCode(c))
+        .filter((s): s is SpellDef => !!s);
+
       // Compute the combat now; store report
       const seed = `${hero.id}-${Date.now()}-${Math.floor(Math.random() * 0xffff)}`;
       const report = simulateCombat(
         { ...effective, name: hero.name },
         def.enemy,
         consumablePlan,
+        spellDefs,
         seed,
       );
 
@@ -260,7 +272,7 @@ export class MissionsService {
       def.rewardXp,
     );
 
-    await tx.hero.update({
+    const updated = await tx.hero.update({
       where: { id: heroId },
       data: {
         xp: newXp,
@@ -274,6 +286,16 @@ export class MissionsService {
         unallocatedPoints: { increment: LEVEL_UP_FREE_POINTS * levelUps },
       },
     });
+
+    // Auto-learn class spells unlocked by the new level.
+    if (levelUps > 0) {
+      await this.spells.autoLearnForLevel(
+        heroId,
+        updated.heroClass as HeroClass,
+        updated.level,
+        tx,
+      );
+    }
 
     return {
       xp: def.rewardXp,

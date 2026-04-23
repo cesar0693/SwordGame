@@ -16,6 +16,7 @@ import { DailyClaimPanelComponent } from './panels/daily-claim-panel.component';
 import { InventoryPanelComponent } from './panels/inventory-panel.component';
 import { MissionsPanelComponent } from './panels/missions-panel.component';
 import { ForgePanelComponent } from './panels/forge-panel.component';
+import { SpellsPanelComponent } from './panels/spells-panel.component';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -33,6 +34,7 @@ import { HeroCreationComponent } from './hero-creation.component';
     InventoryPanelComponent,
     MissionsPanelComponent,
     ForgePanelComponent,
+    SpellsPanelComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -118,6 +120,9 @@ import { HeroCreationComponent } from './hero-creation.component';
           }
           @case ('forge') {
             <sg-forge-panel (closed)="closePanel()" />
+          }
+          @case ('spells') {
+            <sg-spells-panel (closed)="closePanel()" />
           }
         }
       } @else {

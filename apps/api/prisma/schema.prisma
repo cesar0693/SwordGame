@@ -253,29 +253,18 @@ model MissionRun {
 // Spells
 // --------------------------------------------------------------------------
 
-model Spell {
-  id          String      @id @default(cuid())
-  code        String      @unique
-  name        String
-  description String
-  classLock   HeroClass?
-  mpCost      Int
-  cooldown    Int
-  effect      Json
-
-  learnedBy   HeroSpell[]
-}
-
+// Spell catalog lives in @swordgame/shared (packages/shared/src/spells.ts).
+// Only the per-hero learned/equipped state is persisted.
 model HeroSpell {
   id        String   @id @default(cuid())
   heroId    String
   hero      Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  spellId   String
-  spell     Spell    @relation(fields: [spellId], references: [id])
+  spellCode String
   equipped  Boolean  @default(false)
   learnedAt DateTime @default(now())
 
-  @@unique([heroId, spellId])
+  @@unique([heroId, spellCode])
+  @@index([heroId, equipped])
 }
 
 // --------------------------------------------------------------------------

@@ -8,5 +8,6 @@ export * from './companions.js';
 export * from './consumables.js';
 export * from './missions.js';
 export * from './forge.js';
+export * from './spells.js';
 export * from './market.js';
 export * from './daily.js';

@@ -10,6 +10,7 @@ export type CombatActionType =
   | 'DODGE'
   | 'HEAL'
   | 'BUFF'
+  | 'SPELL'
   | 'DEFEAT';
 
 export interface CombatAction {
@@ -20,6 +21,8 @@ export interface CombatAction {
   damage?: number;
   heal?: number;
   buff?: { stat: string; amount: number; durationTurns: number };
+  spellCode?: string;
+  spellName?: string;
   message: string;
 }
 

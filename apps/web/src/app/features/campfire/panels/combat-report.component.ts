@@ -54,6 +54,7 @@ import { PanelComponent } from '../ui/panel.component';
       .line.heal .icon, .line.buff .icon { color: #8ec04a; }
       .line.crit .icon { color: #ffae3b; font-weight: 700; }
       .line.miss .icon { color: var(--fg-muted); }
+      .line.spell .icon { color: #8ecbff; font-weight: 700; }
 
       h3 { margin: 1rem 0 0.4rem; color: #ffd9a8; font-size: 0.9rem;
            text-transform: uppercase; letter-spacing: 0.05em; }
@@ -93,6 +94,7 @@ import { PanelComponent } from '../ui/panel.component';
         @for (a of report().actions; track $index) {
           <div class="line" [class.hero]="a.side === 'HERO'" [class.enemy]="a.side === 'ENEMY'"
                [class.heal]="a.type === 'HEAL'" [class.buff]="a.type === 'BUFF'"
+               [class.spell]="a.type === 'SPELL'"
                [class.crit]="a.type === 'CRIT'" [class.miss]="a.type === 'DODGE' || a.type === 'CRIT_FAIL'">
             <span class="turn">T{{ a.turn }}</span>
             <span class="icon">{{ icon(a) }}</span>
@@ -141,6 +143,7 @@ export class CombatReportComponent {
       case 'DODGE':  return '«';
       case 'HEAL':   return '+';
       case 'BUFF':   return '↑';
+      case 'SPELL':  return '✺';
       case 'DEFEAT': return '☠';
     }
   }

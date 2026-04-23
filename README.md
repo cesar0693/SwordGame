@@ -321,9 +321,32 @@ Livré :
 - Onglet Améliorer : chaque carte montre coût + taux de succès ; flash ✦ succès / ✗ échec après tentative.
 - Onglet Recettes : chaque recette montre cost + output (stats + rareté) et se grise si Niv forgeron insuffisant ou ressources manquantes.
 
-### Phase 6 — Sorts
-- Sorts par classe, appris via level-up ou quêtes.
-- Jusqu'à N sorts équipables → entrent dans la boucle de combat (cooldown, coût MP).
+### Phase 6 — Sorts ✅
+Livré :
+
+**Catalogue** (`packages/shared/src/spells.ts`) : 12 sorts au total, 4 par classe. Chaque sort a un `learnAtLevel`, `mpCost`, `cooldownTurns` et un `effect` typé (`DAMAGE` / `HEAL` / `BUFF`).
+
+| Classe | Sorts (déblocage) |
+|--------|-------------------|
+| Guerrier | Entaille (1), Mur de boucliers (3), Frappe héroïque (5), Cri de guerre (7) |
+| Mage | Boule de feu (1), Bouclier arcanique (3), Éclair (5), Régénération (7) |
+| Rôdeur | Flèche empoisonnée (1), Esquive (3), Tir multiple (5), Concentration (7) |
+
+**Apprentissage** : automatique au level-up quand le niveau du héros atteint `learnAtLevel`. Déclenché lors de la création du héros (Niv 1) et dans le flow de récompense des missions (`MissionsService.applyRewards`). Idempotent : rejouer ne re-crée pas le sort.
+
+**Équipement** : jusqu'à **3 sorts** équipables simultanément (`MAX_EQUIPPED_SPELLS`). Seuls les équipés entrent dans le combat.
+
+**Intégration combat** (`combat.engine.ts`) : à son tour, le héros choisit entre attaque classique et sort équipé selon une priorité claire :
+1. **HEAL** si PV < 40 %, cooldown off, MP suffisants.
+2. **BUFF** non encore actif, cooldown off, MP suffisants.
+3. **DAMAGE** cooldown off, MP suffisants — le sort avec les dégâts attendus les plus élevés d'abord.
+4. Sinon : attaque physique classique.
+
+Les `hits > 1` (tir multiple), `critBonus` et `flatDamage` sont pris en compte. Les cooldowns tickent en fin de tour, les coûts en PM sont débités à la cast.
+
+**Backend** : la table `Spell` est supprimée (catalog en shared). `HeroSpell.spellCode` référence par code + flag `equipped`. `SpellsService` expose `listByHero`, `equip`, `unequip`, `autoLearnForLevel`, `equippedCodes`. Endpoints : `/spells/catalog`, `/spells/me`, `/spells/:code/equip`, `/spells/:code/unequip`.
+
+**UI** : panneau Sorts affichant uniquement les sorts de la classe du héros avec badges (verrouillé / appris / équipé), type coloré (rouge DAMAGE, vert HEAL, bleu BUFF), coûts et cooldowns. Rapport de combat avec icône ✺ pour les sorts (couleur bleue).
 
 ### Phase 7 — PvP
 - Classement Elo.
