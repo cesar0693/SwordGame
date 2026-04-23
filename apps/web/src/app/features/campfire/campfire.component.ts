@@ -15,6 +15,7 @@ import { MarketPanelComponent } from './panels/market-panel.component';
 import { DailyClaimPanelComponent } from './panels/daily-claim-panel.component';
 import { InventoryPanelComponent } from './panels/inventory-panel.component';
 import { MissionsPanelComponent } from './panels/missions-panel.component';
+import { ForgePanelComponent } from './panels/forge-panel.component';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -31,6 +32,7 @@ import { HeroCreationComponent } from './hero-creation.component';
     DailyClaimPanelComponent,
     InventoryPanelComponent,
     MissionsPanelComponent,
+    ForgePanelComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -113,6 +115,9 @@ import { HeroCreationComponent } from './hero-creation.component';
           }
           @case ('missions') {
             <sg-missions-panel (closed)="closePanel()" />
+          }
+          @case ('forge') {
+            <sg-forge-panel (closed)="closePanel()" />
           }
         }
       } @else {

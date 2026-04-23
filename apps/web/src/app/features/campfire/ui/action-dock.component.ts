@@ -105,7 +105,7 @@ export class ActionDockComponent {
     { id: 'dailies',   label: 'Journalier', glyph: '☀', hint: 'Récompense de connexion quotidienne', available: true },
     { id: 'inventory', label: 'Sac',        glyph: '▣', hint: 'Inventaire & équipement', available: true },
     { id: 'missions',  label: 'Missions',   glyph: '▶', hint: 'Combat PvE auto',              available: true },
-    { id: 'forge',     label: 'Forge',      glyph: '⚒', hint: 'Craft & upgrades (Phase 5)',    available: false },
+    { id: 'forge',     label: 'Forge',      glyph: '⚒', hint: 'Améliorations, recettes, démantelage', available: true },
     { id: 'spells',    label: 'Sorts',      glyph: '✦', hint: 'Apprentissage & équipement (Phase 6)', available: false },
     { id: 'arena',     label: 'Arène',      glyph: '⚔', hint: 'PvP classé (Phase 7)',          available: false },
   ];

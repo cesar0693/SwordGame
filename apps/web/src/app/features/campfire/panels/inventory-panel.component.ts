@@ -13,6 +13,7 @@ import {
   RARITY_LABEL,
   SLOT_LABEL,
   STAT_LABEL,
+  upgradeMultiplier,
   type Item,
   type ItemSlot,
   type ItemStatBonus,
@@ -135,7 +136,7 @@ import { PanelComponent } from '../ui/panel.component';
             <div
               class="name"
               [style.color]="it ? rarityColor(it) : null"
-            >{{ it ? it.name : '—' }}</div>
+            >{{ it ? itemLabel(it) : '—' }}</div>
             @if (it) {
               <button type="button" [disabled]="busy() === it.id" (click)="unequip(it)">
                 Retirer
@@ -153,7 +154,7 @@ import { PanelComponent } from '../ui/panel.component';
           @for (it of unequipped(); track it.id) {
             <div class="item" [class.on-market]="it.onMarket" [style.border-left-color]="rarityColor(it)">
               <div class="title">
-                <span>{{ it.name }}</span>
+                <span>{{ itemLabel(it) }}</span>
                 @if (it.onMarket) { <span class="market-badge">Au marché</span> }
               </div>
               <div class="sub">
@@ -225,6 +226,10 @@ export class InventoryPanelComponent implements OnInit {
     return slot ? SLOT_LABEL[slot] : '—';
   }
 
+  protected itemLabel(it: Item): string {
+    return it.upgradeLevel > 0 ? `${it.name} +${it.upgradeLevel}` : it.name;
+  }
+
   protected rarityLabel(it: Item): string {
     return RARITY_LABEL[it.rarity];
   }
@@ -239,11 +244,16 @@ export class InventoryPanelComponent implements OnInit {
 
   protected bonusEntries(it: Item): Array<{ key: keyof ItemStatBonus; display: string }> {
     const out: Array<{ key: keyof ItemStatBonus; display: string }> = [];
+    const mult = upgradeMultiplier(it.upgradeLevel);
     for (const key of Object.keys(it.bonuses) as Array<keyof ItemStatBonus>) {
       const v = it.bonuses[key];
       if (typeof v !== 'number' || v === 0) continue;
+      const scaled = v * mult;
       const isPct = key === 'critChance' || key === 'dodgeChance';
-      out.push({ key, display: isPct ? `${Math.round(v * 100)}%` : `${v}` });
+      out.push({
+        key,
+        display: isPct ? `${Math.round(scaled * 100)}%` : `${Math.round(scaled)}`,
+      });
     }
     return out;
   }

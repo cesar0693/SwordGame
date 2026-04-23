@@ -302,9 +302,24 @@ Livré :
 - Phase de préparation : sélection des consommables (max 3, cap visible).
 - Rapport de combat (modal) : liste des actions tour par tour avec icônes (⚔ ✦ « + ↑ ☠) + section Récompenses avec level-up highlight.
 
-### Phase 5 — Forge & amélioration
-- Recettes (inputs : ressources + éventuellement item) → item de sortie.
-- Amélioration d'un item existant : +1, +2… avec taux d'échec croissant et coût en gems.
+### Phase 5 — Forge & amélioration ✅
+Livré :
+
+**Panneau Forge** (accessible quand le Forgeron est débloqué), 3 onglets.
+
+- **Améliorer** : `+1 → +10` max. Chaque niveau **multiplie les bonus par +10 %** (appliqué côté `effectiveBonuses`). Taux de réussite dégressifs : 90 % / 75 % / 60 % / 45 % / 30 % / 20 % / 15 % / 12 % / 10 % / 8 %. Coût = `5 + 3×N` fer + `⌈(N+1)/2⌉` gemmes + `20 + 15×N` or. Échec = ressources perdues, niveau inchangé (pas de downgrade, pas de casse).
+- **Recettes** : craft **déterministe** d'items spécifiques (slot + stats fixes) via un catalog statique côté `@swordgame/shared`. 11 recettes réparties sur 3 tiers :
+  - Fer (Niv 1+) : Épée, Bouclier, Casque, Plastron, Bottes — rareté `UNCOMMON`.
+  - Cuivre (Niv 3+) : Lame, Rondache, Anneau — rareté `RARE`.
+  - Argent (Niv 5+) : Lame, Amulette, Plastron — rareté `EPIC`.
+  Chaque recette a un coût en ressources spécifiques (cuivre/argent/gemmes/or…) consommé à la création.
+- **Démantelage** : décompose un item pour récupérer des ressources. Refund basé sur la rareté (`COMMON = 2 fer` → `LEGENDARY = 30 fer + 8 gemmes`) × `(1 + 0.25 × upgradeLevel)` — démanteler un item upgradé rend plus. Interdit si équipé ou sur le marché.
+
+**UI**
+- Chaque item affiche `+N` à côté de son nom dans l'inventaire et le marché.
+- Les bonus affichés dans l'inventaire sont déjà **scalés** par la multiplicateur d'upgrade (visible à l'œil).
+- Onglet Améliorer : chaque carte montre coût + taux de succès ; flash ✦ succès / ✗ échec après tentative.
+- Onglet Recettes : chaque recette montre cost + output (stats + rareté) et se grise si Niv forgeron insuffisant ou ressources manquantes.
 
 ### Phase 6 — Sorts
 - Sorts par classe, appris via level-up ou quêtes.

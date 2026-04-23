@@ -10,6 +10,7 @@ import { ItemsModule } from './items/items.module';
 import { MarketModule } from './market/market.module';
 import { DailyModule } from './daily/daily.module';
 import { MissionsModule } from './missions/missions.module';
+import { ForgeModule } from './forge/forge.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -25,6 +26,7 @@ import { HealthController } from './health.controller';
     MarketModule,
     DailyModule,
     MissionsModule,
+    ForgeModule,
   ],
   controllers: [HealthController],
 })

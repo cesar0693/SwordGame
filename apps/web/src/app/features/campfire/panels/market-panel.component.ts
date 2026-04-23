@@ -185,7 +185,7 @@ type AssetKind = 'RESOURCE' | 'ITEM';
                 <!-- ITEM listing -->
                 <div class="row item" [style.border-left-color]="itemColor(l)">
                   <div class="what">
-                    <b [style.color]="itemColor(l)">{{ l.item?.name }}</b>
+                    <b [style.color]="itemColor(l)">{{ marketItemLabel(l) }}</b>
                     <small>
                       {{ slotLabel(l.item?.slot) }} · {{ rarityLabel(l) }} ·
                       Vendeur : {{ l.sellerName }} · Fin : {{ relativeTime(l.expiresAt) }}
@@ -344,7 +344,7 @@ type AssetKind = 'RESOURCE' | 'ITEM';
                   @if (l.assetType === 'RESOURCE') {
                     <b>{{ l.amount }}× {{ resourceLabel(l.resourceType!) }}</b>
                   } @else {
-                    <b [style.color]="itemColor(l)">{{ l.item?.name }}</b>
+                    <b [style.color]="itemColor(l)">{{ marketItemLabel(l) }}</b>
                     <small>{{ slotLabel(l.item?.slot) }} · {{ rarityLabel(l) }}</small>
                   }
                   <small>
@@ -584,6 +584,11 @@ export class MarketPanelComponent implements OnInit {
 
   protected itemColor(l: MarketListing): string {
     return l.item ? RARITY_COLOR[l.item.rarity] : '#b6a88e';
+  }
+
+  protected marketItemLabel(l: MarketListing): string {
+    if (!l.item) return '';
+    return l.item.upgradeLevel > 0 ? `${l.item.name} +${l.item.upgradeLevel}` : l.item.name;
   }
 
   protected itemBonuses(

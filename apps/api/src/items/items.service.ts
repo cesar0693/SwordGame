@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import {
   CONSUMABLE_CATALOG,
+  upgradeMultiplier,
   type HeroStats,
   type Item,
   type ItemKind,
@@ -140,19 +141,29 @@ export class ItemsService {
     return this.toDto(created);
   }
 
-  /** Sum of equipped item bonuses for effective stat computation. */
+  /**
+   * Sum of equipped item bonuses for effective stat computation,
+   * scaled by each item's upgrade multiplier.
+   */
   async effectiveBonuses(heroId: string): Promise<ItemStatBonus> {
     const equipped = await this.prisma.item.findMany({
       where: { heroId, equipped: true },
-      select: { bonuses: true },
+      select: { bonuses: true, upgradeLevel: true },
     });
     const total: ItemStatBonus = {};
     for (const row of equipped) {
       const b = (row.bonuses ?? {}) as ItemStatBonus;
+      const mult = upgradeMultiplier(row.upgradeLevel);
       for (const key of Object.keys(b) as Array<keyof ItemStatBonus>) {
         const v = b[key];
         if (typeof v !== 'number') continue;
-        total[key] = (total[key] ?? 0) + v;
+        const scaled = v * mult;
+        // Keep pct stats in their 0..1 space; round ints, keep 4 decimals on pct
+        const isPct = key === 'critChance' || key === 'dodgeChance';
+        const finalVal = isPct
+          ? Math.round(scaled * 10000) / 10000
+          : Math.round(scaled);
+        total[key] = (total[key] ?? 0) + finalVal;
       }
     }
     return total;
