@@ -10,5 +10,7 @@ export * from './missions.js';
 export * from './forge.js';
 export * from './spells.js';
 export * from './pvp.js';
+export * from './quests.js';
+export * from './minigames.js';
 export * from './market.js';
 export * from './daily.js';

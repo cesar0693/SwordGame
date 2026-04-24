@@ -13,6 +13,8 @@ import { MissionsModule } from './missions/missions.module';
 import { ForgeModule } from './forge/forge.module';
 import { SpellsModule } from './spells/spells.module';
 import { PvpModule } from './pvp/pvp.module';
+import { QuestsModule } from './quests/quests.module';
+import { MinigamesModule } from './minigames/minigames.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -31,6 +33,8 @@ import { HealthController } from './health.controller';
     ForgeModule,
     SpellsModule,
     PvpModule,
+    QuestsModule,
+    MinigamesModule,
   ],
   controllers: [HealthController],
 })

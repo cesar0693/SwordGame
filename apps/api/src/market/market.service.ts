@@ -22,6 +22,7 @@ import {
 } from '@swordgame/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
+import { QuestsService } from '../quests/quests.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -65,6 +66,7 @@ export class MarketService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resources: ResourcesService,
+    private readonly quests: QuestsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -359,6 +361,7 @@ export class MarketService {
       data: { state: 'SOLD', buyerHeroId: buyerId, soldAt: new Date() },
       include: LISTING_INCLUDE,
     });
+    await this.quests.incrementFor(listing.sellerHeroId, 'MARKET_SALE', 1, tx);
     return this.toDto(updated);
   }
 
@@ -382,6 +385,7 @@ export class MarketService {
       data: { state: 'SOLD', buyerHeroId: winnerId, soldAt: new Date() },
       include: LISTING_INCLUDE,
     });
+    await this.quests.incrementFor(listing.sellerHeroId, 'MARKET_SALE', 1, tx);
     return this.toDto(updated);
   }
 

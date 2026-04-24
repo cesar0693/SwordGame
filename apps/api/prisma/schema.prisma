@@ -73,6 +73,7 @@ model Hero {
   heroSpells    HeroSpell[]
   dailyQuests   DailyQuest[]
   dailyClaims   DailyClaim[]
+  minigamePlays MinigamePlay[]
   marketListingsAsSeller MarketListing[] @relation("MarketSeller")
   marketListingsAsBuyer  MarketListing[] @relation("MarketBuyer")
   marketBids             MarketBid[]
@@ -303,14 +304,18 @@ model DailyQuest {
   id         String   @id @default(cuid())
   heroId     String
   hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  // Reference to shared QUEST_CATALOG.
   code       String
+  // Denormalized event type for fast incrementFor lookups.
+  event      String
   progress   Int      @default(0)
   target     Int
-  rewardJson Json
   completed  Boolean  @default(false)
+  claimed    Boolean  @default(false)
   day        DateTime
 
   @@unique([heroId, code, day])
+  @@index([heroId, day, event])
 }
 
 model DailyClaim {
@@ -323,6 +328,22 @@ model DailyClaim {
   claimedAt  DateTime @default(now())
 
   @@unique([heroId, day])
+}
+
+model MinigamePlay {
+  id        String   @id @default(cuid())
+  heroId    String
+  hero      Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  code      String
+  day       DateTime
+  betGold   Int
+  wasFree   Boolean  @default(false)
+  win       Boolean  @default(false)
+  netGold   Int
+  outcome   Json
+  playedAt  DateTime @default(now())
+
+  @@index([heroId, day, code])
 }
 
 // --------------------------------------------------------------------------

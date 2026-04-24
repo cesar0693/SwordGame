@@ -21,6 +21,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
 import { ItemsService } from '../items/items.service';
+import { QuestsService } from '../quests/quests.service';
 import {
   VALID_AXES,
   defaultTrackCode,
@@ -39,6 +40,7 @@ export class CompanionsService {
     private readonly prisma: PrismaService,
     private readonly resources: ResourcesService,
     private readonly items: ItemsService,
+    private readonly quests: QuestsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -251,6 +253,7 @@ export class CompanionsService {
         },
         include: { spends: true },
       });
+      await this.quests.incrementFor(heroId, 'COMPANION_CLAIM', cycles, tx);
       return this.toDto(updated);
     });
   }

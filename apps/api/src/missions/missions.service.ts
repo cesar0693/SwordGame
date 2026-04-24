@@ -27,6 +27,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
 import { SpellsService } from '../spells/spells.service';
+import { QuestsService } from '../quests/quests.service';
 import { simulateCombat } from '../combat/combat.engine';
 
 type Tx = Prisma.TransactionClient;
@@ -46,6 +47,7 @@ export class MissionsService {
     private readonly items: ItemsService,
     private readonly resources: ResourcesService,
     private readonly spells: SpellsService,
+    private readonly quests: QuestsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -211,6 +213,7 @@ export class MissionsService {
 
       if (report.outcome === 'VICTORY') {
         rewards = await this.applyRewards(tx, heroId, def);
+        await this.quests.incrementFor(heroId, 'MISSION_WIN', 1, tx);
       }
 
       await tx.missionRun.update({

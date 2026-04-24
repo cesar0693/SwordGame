@@ -382,9 +382,29 @@ Livré :
 
 **Note migration** : aucune modification de schéma (`PvpMatch` et `Hero.pvpRating` existaient déjà depuis Phase 0).
 
-### Phase 8 — Quêtes journalières & mini-jeux
-- Reset UTC quotidien (connexion quotidienne déjà livrée en Phase 2).
-- Mini-jeux (pile-ou-face enchaîné, memory, dés) récompensant XP/or.
+### Phase 8 — Quêtes journalières & mini-jeux ✅
+Livré :
+
+**Quêtes journalières**
+- Catalogue de 8 quêtes dans `packages/shared/src/quests.ts` couvrant tous les piliers du jeu : missions gagnées, victoires/défis PvP, cycles de compagnons, craft/upgrade à la Forge, ventes au marché, parties de mini-jeu.
+- **3 quêtes rollées aléatoirement** au premier accès quotidien (reset UTC) et persistées en `DailyQuest`.
+- Progression automatique via un bus d'events : chaque service concerné appelle `QuestsService.incrementFor(heroId, eventType, amount, tx)` dans sa transaction existante. Le progress est capé au target, la quête est marquée `completed` dès que le target est atteint.
+- Claim manuel par quête : récompenses (XP + or + parfois ressources/gemmes) appliquées dans une transaction.
+
+**Mini-jeux**
+- 2 mini-jeux à gain instantané : **Pile ou face** (mise × 2 en cas de bon call) et **Dé chanceux** (3d6, somme ≥ 12 → mise × 2.5).
+- **1 partie gratuite par jeu par jour** : si tu gagnes avec le free play, tu empoches le payout sans débit préalable. Les parties suivantes débitent la mise avant le roll.
+- Historique stocké dans `MinigamePlay` pour vérifier le free play du jour.
+- Chaque partie (gratuite ou payante) compte dans la quête "Gambler".
+
+**UI — Panneau Journalier**
+- 3 onglets : **Connexion** (le claim de streak existant depuis Phase 2), **Quêtes** (liste des 3 quêtes du jour avec barre de progression et bouton Réclamer), **Mini-jeux** (les 2 jeux avec badge "1 partie gratuite" + résultat inline).
+- Le rapport de partie montre le flip/les dés, le net en or, le nouveau solde.
+
+**Backend**
+- Modules `quests/` et `minigames/` ajoutés à AppModule.
+- `MissionsService`, `PvpService`, `CompanionsService`, `ForgeService`, `MarketService` injectent `QuestsService` et publient les events pertinents dans leurs transactions existantes (pas de double commit, rollback propre si une étape échoue).
+- Schéma Prisma : `DailyQuest` retravaillée (code + event dénormalisé), `MinigamePlay` ajoutée.
 
 ### Phase 9 — Polish
 - Notifications temps réel (Socket.io) : mission finie, attaqué en PvP.

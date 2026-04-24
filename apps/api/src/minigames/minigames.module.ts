@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { HeroesModule } from '../heroes/heroes.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { QuestsModule } from '../quests/quests.module';
-import { MarketController } from './market.controller';
-import { MarketService } from './market.service';
+import { MinigamesController } from './minigames.controller';
+import { MinigamesService } from './minigames.service';
 
 @Module({
   imports: [HeroesModule, ResourcesModule, QuestsModule],
-  controllers: [MarketController],
-  providers: [MarketService],
-  exports: [MarketService],
+  controllers: [MinigamesController],
+  providers: [MinigamesService],
+  exports: [MinigamesService],
 })
-export class MarketModule {}
+export class MinigamesModule {}

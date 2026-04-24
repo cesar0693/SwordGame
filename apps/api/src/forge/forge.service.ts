@@ -22,6 +22,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
+import { QuestsService } from '../quests/quests.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -37,6 +38,7 @@ export class ForgeService {
     private readonly prisma: PrismaService,
     private readonly items: ItemsService,
     private readonly resources: ResourcesService,
+    private readonly quests: QuestsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -114,6 +116,7 @@ export class ForgeService {
           bonuses: def.output.bonuses as unknown as Prisma.InputJsonValue,
         },
       });
+      await this.quests.incrementFor(heroId, 'FORGE_CRAFT', 1, tx);
       return this.itemDto(created);
     });
   }
@@ -146,6 +149,10 @@ export class ForgeService {
         where: { id: item.id },
         data: success ? { upgradeLevel: item.upgradeLevel + 1 } : {},
       });
+
+      if (success) {
+        await this.quests.incrementFor(heroId, 'FORGE_UPGRADE_SUCCESS', 1, tx);
+      }
 
       return {
         success,

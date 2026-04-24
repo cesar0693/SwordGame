@@ -25,6 +25,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
 import { SpellsService } from '../spells/spells.service';
+import { QuestsService } from '../quests/quests.service';
 import { simulateCombat, type ConsumablePlan } from '../combat/combat.engine';
 
 type Tx = Prisma.TransactionClient;
@@ -36,6 +37,7 @@ export class PvpService {
     private readonly items: ItemsService,
     private readonly resources: ResourcesService,
     private readonly spells: SpellsService,
+    private readonly quests: QuestsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -234,6 +236,12 @@ export class PvpService {
           defender: { select: { name: true } },
         },
       });
+
+      // Quest progress (always counts as a challenge, +1 win if attacker won)
+      await this.quests.incrementFor(attackerId, 'PVP_CHALLENGE', 1, tx);
+      if (attackerWon) {
+        await this.quests.incrementFor(attackerId, 'PVP_WIN', 1, tx);
+      }
 
       return this.matchToDto(match);
     });
