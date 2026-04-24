@@ -107,7 +107,7 @@ export class ActionDockComponent {
     { id: 'missions',  label: 'Missions',   glyph: '▶', hint: 'Combat PvE auto',              available: true },
     { id: 'forge',     label: 'Forge',      glyph: '⚒', hint: 'Améliorations, recettes, démantelage', available: true },
     { id: 'spells',    label: 'Sorts',      glyph: '✦', hint: 'Sorts de classe à équiper pour le combat', available: true },
-    { id: 'arena',     label: 'Arène',      glyph: '⚔', hint: 'PvP classé (Phase 7)',          available: false },
+    { id: 'arena',     label: 'Arène',      glyph: '⚔', hint: 'PvP classé Elo',                available: true },
   ];
 
   protected open(item: DockItem): void {

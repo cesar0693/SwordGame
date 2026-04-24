@@ -12,6 +12,7 @@ import { DailyModule } from './daily/daily.module';
 import { MissionsModule } from './missions/missions.module';
 import { ForgeModule } from './forge/forge.module';
 import { SpellsModule } from './spells/spells.module';
+import { PvpModule } from './pvp/pvp.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
     MissionsModule,
     ForgeModule,
     SpellsModule,
+    PvpModule,
   ],
   controllers: [HealthController],
 })

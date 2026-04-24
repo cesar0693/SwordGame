@@ -27,7 +27,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
 import { SpellsService } from '../spells/spells.service';
-import { simulateCombat } from './combat.engine';
+import { simulateCombat } from '../combat/combat.engine';
 
 type Tx = Prisma.TransactionClient;
 
@@ -165,10 +165,8 @@ export class MissionsService {
       // Compute the combat now; store report
       const seed = `${hero.id}-${Date.now()}-${Math.floor(Math.random() * 0xffff)}`;
       const report = simulateCombat(
-        { ...effective, name: hero.name },
-        def.enemy,
-        consumablePlan,
-        spellDefs,
+        { name: hero.name, stats: effective, spells: spellDefs, consumables: consumablePlan },
+        { name: def.enemy.name, stats: def.enemy },
         seed,
       );
 

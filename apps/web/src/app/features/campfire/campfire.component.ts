@@ -17,6 +17,7 @@ import { InventoryPanelComponent } from './panels/inventory-panel.component';
 import { MissionsPanelComponent } from './panels/missions-panel.component';
 import { ForgePanelComponent } from './panels/forge-panel.component';
 import { SpellsPanelComponent } from './panels/spells-panel.component';
+import { ArenaPanelComponent } from './panels/arena-panel.component';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -35,6 +36,7 @@ import { HeroCreationComponent } from './hero-creation.component';
     MissionsPanelComponent,
     ForgePanelComponent,
     SpellsPanelComponent,
+    ArenaPanelComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -123,6 +125,9 @@ import { HeroCreationComponent } from './hero-creation.component';
           }
           @case ('spells') {
             <sg-spells-panel (closed)="closePanel()" />
+          }
+          @case ('arena') {
+            <sg-arena-panel (closed)="closePanel()" />
           }
         }
       } @else {

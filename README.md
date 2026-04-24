@@ -348,10 +348,39 @@ Les `hits > 1` (tir multiple), `critBonus` et `flatDamage` sont pris en compte. 
 
 **UI** : panneau Sorts affichant uniquement les sorts de la classe du héros avec badges (verrouillé / appris / équipé), type coloré (rouge DAMAGE, vert HEAL, bleu BUFF), coûts et cooldowns. Rapport de combat avec icône ✺ pour les sorts (couleur bleue).
 
-### Phase 7 — PvP
-- Classement Elo.
-- Défi d'un joueur : combat auto avec ses stats à l'instant T.
-- Rewards de saison, cooldown entre défis.
+### Phase 7 — PvP ✅
+Livré :
+
+**Combat engine — refactor**
+- Déplacé dans `apps/api/src/combat/combat.engine.ts` (partagé missions + PvP).
+- Nouvelle signature `simulateCombat(attacker, defender, seed)` où chaque combattant porte ses stats, ses sorts et éventuellement ses consommables.
+- Support **symétrique** des sorts et buffs : le défenseur peut aussi caster. Les buffs sont trackés par côté, les `applyAttack` récupèrent le bon set de buffs pour l'attaquant et le défenseur.
+- Missions : défenseur = ennemi statique avec `spells: []`, `consumables: []` → comportement identique à Phase 4.
+
+**Classement Elo**
+- K-factor 32, note de départ 1000, plancher 100 (`packages/shared/src/pvp.ts`).
+- `applyElo(ratingA, ratingB, scoreA)` retourne les nouveaux scores des deux côtés.
+- Leaderboard endpoint trié par `pvpRating` desc, limite 100.
+
+**Défi**
+- Attaquant choisit une cible dans le leaderboard + jusqu'à **3 consommables** depuis son inventaire (décomptés à la cast comme en mission).
+- Le défenseur n'apporte rien : ses stats effectives + sorts équipés sont figés au moment T côté serveur. Pas de défense préparée.
+- Interdit de se défier soi-même.
+- **Cooldown attaquant** : 5 minutes entre défis (anti-spam). Le défenseur n'a pas de cooldown — il peut être défié plusieurs fois d'affilée.
+- Résolution **immédiate** : snapshot stats effectives + sorts + consommables → `simulateCombat` → écriture `PvpMatch` + mise à jour des deux `pvpRating` + distribution de l'or, le tout dans une transaction Prisma.
+
+**Rewards**
+- **Gagnant** : `max(10, 20 + (ratingPerdant − ratingGagnant) / 20)` → battre plus fort que soi paye mieux, farmer plus faible paye peu.
+- **Perdant** : 5 or de consolation (évite les cumuls négatifs).
+- **Pas d'XP** : évite le farming d'XP via auto-victoires.
+
+**UI — Panneau Arène**
+- Bandeau permanent : rang actuel + score Elo + état du cooldown (tick live).
+- Onglet **Classement** : top 100, ligne du héros surlignée, bouton "Défier" par ligne, loadout des consommables au-dessus de la liste.
+- Onglet **Mes combats** : 20 derniers matchs (attaques + défenses), bordure verte/rouge selon victoire/défaite, delta Elo affiché, bouton "Rapport" qui réouvre le `CombatReport` complet.
+- Rapport PvP réutilise le même modal que les missions.
+
+**Note migration** : aucune modification de schéma (`PvpMatch` et `Hero.pvpRating` existaient déjà depuis Phase 0).
 
 ### Phase 8 — Quêtes journalières & mini-jeux
 - Reset UTC quotidien (connexion quotidienne déjà livrée en Phase 2).
