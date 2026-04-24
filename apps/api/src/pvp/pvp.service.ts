@@ -225,13 +225,9 @@ export class PvpService {
           defenderRatingBefore: defender.pvpRating,
           attackerRatingAfter: newA,
           defenderRatingAfter: newB,
-          report: {
-            ...report,
-            rewards: {
-              winnerGold,
-              loserGold,
-            },
-          } as unknown as Prisma.InputJsonValue,
+          // Ranked combats have no mission-style rewards; gold is shown from
+          // the rating delta at read time via pvpWinnerGold().
+          report: { ...report, rewards: null } as unknown as Prisma.InputJsonValue,
         },
         include: {
           attacker: { select: { name: true } },
@@ -284,9 +280,10 @@ export class PvpService {
     }>,
   ): PvpMatchSummary {
     const report = row.report as unknown as CombatReport;
-    const rewards = (report as unknown as {
-      rewards?: { winnerGold: number; loserGold: number };
-    }).rewards;
+    const attackerWon = row.outcome === 'ATTACKER_WIN';
+    const winnerRating = attackerWon ? row.attackerRatingBefore : row.defenderRatingBefore;
+    const loserRating = attackerWon ? row.defenderRatingBefore : row.attackerRatingBefore;
+    const winnerGold = pvpWinnerGold(winnerRating, loserRating);
     return {
       id: row.id,
       attackerId: row.attackerId,
@@ -298,8 +295,8 @@ export class PvpService {
       attackerRatingAfter: row.attackerRatingAfter,
       defenderRatingBefore: row.defenderRatingBefore,
       defenderRatingAfter: row.defenderRatingAfter,
-      winnerGold: rewards?.winnerGold ?? 0,
-      loserGold: rewards?.loserGold ?? 0,
+      winnerGold,
+      loserGold: PVP_LOSER_GOLD,
       playedAt: row.playedAt.toISOString(),
       report,
     };

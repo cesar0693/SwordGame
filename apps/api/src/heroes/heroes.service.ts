@@ -92,20 +92,22 @@ export class HeroesService {
     if (!(STAT_ALLOCATIONS as readonly string[]).includes(stat)) {
       throw new ConflictException('Invalid stat');
     }
-    const hero = await this.prisma.hero.findUnique({ where: { userId } });
-    if (!hero) throw new NotFoundException('Hero not found');
-    if (hero.unallocatedPoints <= 0) {
-      throw new ConflictException('No unspent points');
-    }
     const value = ALLOCATION_VALUE_PER_POINT[stat];
-    const updated = await this.prisma.hero.update({
-      where: { id: hero.id },
+    // Atomic spend: only succeeds if there is at least one unspent point.
+    const res = await this.prisma.hero.updateMany({
+      where: { userId, unallocatedPoints: { gt: 0 } },
       data: {
         unallocatedPoints: { decrement: 1 },
         [stat]: { increment: value },
       },
     });
-    return this.toDto(updated);
+    if (res.count === 0) {
+      const exists = await this.prisma.hero.findUnique({ where: { userId } });
+      if (!exists) throw new NotFoundException('Hero not found');
+      throw new ConflictException('No unspent points');
+    }
+    const row = await this.prisma.hero.findUniqueOrThrow({ where: { userId } });
+    return this.toDto(row);
   }
 
   private async toDto(row: NonNullable<HeroRow>): Promise<Hero> {

@@ -131,7 +131,7 @@ type Tab = 'leaderboard' | 'history';
             Mon rang : <b>{{ heroRank() ?? '—' }}</b> · Note <b>{{ heroRating() }}</b>
           </span>
           <span>
-            @if (cd.ready) { Prêt à défier. } @else { Cooldown : {{ cooldownLabel() }} }
+            @if (canChallenge()) { Prêt à défier. } @else { Cooldown : {{ cooldownLabel() }} }
           </span>
         </div>
       }
@@ -256,7 +256,13 @@ export class ArenaPanelComponent implements OnInit {
   });
   protected readonly canChallenge = computed(() => {
     void this.tick();
-    return this.cooldown()?.ready ?? false;
+    const cd = this.cooldown();
+    if (!cd) return false;
+    if (cd.ready) return true;
+    // Server said not-ready; re-check against nextReadyAt so the button
+    // unlocks the instant the cooldown elapses without a full reload.
+    if (!cd.nextReadyAt) return false;
+    return Date.parse(cd.nextReadyAt) <= Date.now();
   });
 
   constructor() {
