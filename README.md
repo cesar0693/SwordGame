@@ -406,10 +406,42 @@ Livré :
 - `MissionsService`, `PvpService`, `CompanionsService`, `ForgeService`, `MarketService` injectent `QuestsService` et publient les events pertinents dans leurs transactions existantes (pas de double commit, rollback propre si une étape échoue).
 - Schéma Prisma : `DailyQuest` retravaillée (code + event dénormalisé), `MinigamePlay` ajoutée.
 
-### Phase 9 — Polish
-- Notifications temps réel (Socket.io) : mission finie, attaqué en PvP.
-- Anti-cheat : toute action mutante passe par un service qui recalcule la production et applique les règles.
-- I18n FR/EN.
+### Phase 9 — Polish ✅
+Livré :
+
+**Notifications temps réel (Socket.io)**
+- `NotificationsGateway` (namespace `/realtime`) avec auth JWT au handshake (`auth.token` ou `?token=`). Chaque socket authentifié rejoint la room `user:<userId>`.
+- `NotificationsService.pushToHero(heroId, type, title, message, data)` résout le userId et émet via la room — l'event arrive sur tous les onglets ouverts du joueur.
+- Émissions branchées :
+  - **MissionsService** : push `MISSION_COMPLETED` quand `activeRun` flippe `PENDING → COMPLETED` (le client reçoit un toast même sans refresh).
+  - **PvpService** : push `PVP_ATTACKED` au défenseur après chaque match (issue gagnée ou perdue).
+- Toasts UI overlay (`ToastHostComponent`) avec slide-in à droite, dismiss manuel, bordure colorée par type.
+
+**Throttling (anti-spam / anti-bruteforce)**
+- `@nestjs/throttler` global : 60 req / min / IP par défaut.
+- Surcharges locales sur les endpoints sensibles :
+  - `POST /auth/register` — 5/min
+  - `POST /auth/login` — 10/min
+  - `POST /auth/refresh` — 30/min
+  - `POST /pvp/challenge` — 5/min (le cooldown applicatif reste la vraie barrière)
+  - `POST /minigames/play` — 30/min
+  - `POST /market/listings/:id/bid` — 30/min
+
+**Audit anti-cheat — conclusion**
+Le design tient déjà debout :
+- Toutes les mutations (or, ressources, items, levels, ratings, marché) passent par un service qui les écrit dans une transaction Prisma. Aucune route ne fait de raw `tx.resource.update` côté contrôleur sans passer par `ResourcesService.add`.
+- Les soldes ne transitent jamais avec confiance depuis le client : les costs sont vérifiés par `add(..., -delta)` qui rejette si solde insuffisant.
+- Combats résolus côté serveur avec un seed RNG figé au lancement → aucun moyen de modifier le résultat depuis le front.
+- L'allocation de points stat utilise désormais un `updateMany` atomique (cf. stability pass).
+- Items en vente : flag `onMarket` empêche equip/drop/double-listing ; la liste est rejouée à chaque lecture pour expiration.
+
+**I18n FR/EN**
+- `I18nService` signal-based + dictionnaire centralisé `core/i18n/dictionary.ts`. Persistance localStorage. Fallback FR si clé manquante.
+- `LangPickerComponent` (toggle FR/EN) en haut-droite des écrans Auth + Hub.
+- Écrans traduits dans ce commit : Login / Register / Top bar / Dock (8 actions) / mots-clés communs.
+- Les panneaux secondaires (Camp, Marché, Forge, Missions, Sorts, Arène, Journalier) gardent leurs strings FR pour l'instant ; chaque libellé est trivialement migrable en remplaçant le texte par `i18n.t('panel.key')` et en ajoutant la clé au dictionnaire. Voir `dictionary.ts` pour le format.
+
+**Note migration** : nouvelles deps backend (`@nestjs/websockets`, `@nestjs/platform-socket.io`, `@nestjs/throttler`, `socket.io`) et frontend (`socket.io-client`). `pnpm install` requis. Aucun changement de schéma Prisma.
 
 ---
 

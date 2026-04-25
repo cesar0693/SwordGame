@@ -18,6 +18,10 @@ import { MissionsPanelComponent } from './panels/missions-panel.component';
 import { ForgePanelComponent } from './panels/forge-panel.component';
 import { SpellsPanelComponent } from './panels/spells-panel.component';
 import { ArenaPanelComponent } from './panels/arena-panel.component';
+import { ToastHostComponent } from './ui/toast-host.component';
+import { LangPickerComponent } from './ui/lang-picker.component';
+import { NotificationsService } from '../../core/notifications/notifications.service';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { HeroCreationComponent } from './hero-creation.component';
 
 @Component({
@@ -37,6 +41,8 @@ import { HeroCreationComponent } from './hero-creation.component';
     ForgePanelComponent,
     SpellsPanelComponent,
     ArenaPanelComponent,
+    ToastHostComponent,
+    LangPickerComponent,
     HeroCreationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -89,14 +95,16 @@ import { HeroCreationComponent } from './hero-creation.component';
       <sg-campfire-scene [heroClass]="sceneClass()" />
 
       <div class="topbar">
+        <sg-lang-picker />
         <span class="user">{{ auth.user()?.username }}</span>
-        <button type="button" (click)="logout()">Déconnexion</button>
+        <button type="button" (click)="logout()">{{ i18n.t('topbar.logout') }}</button>
       </div>
 
       @if (heroes.hero(); as hero) {
         <sg-hero-hud [hero]="hero" />
         <sg-gold-indicator />
         <sg-action-dock (opened)="openPanel($event)" />
+        <sg-toast-host />
 
         @switch (openPanelId()) {
           @case ('profile') {
@@ -145,6 +153,8 @@ export class CampfireComponent implements OnInit {
   protected readonly heroes = inject(HeroesService);
   private readonly resourcesSvc = inject(ResourcesService);
   private readonly dailySvc = inject(DailyService);
+  private readonly notifications = inject(NotificationsService);
+  protected readonly i18n = inject(I18nService);
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
@@ -156,6 +166,7 @@ export class CampfireComponent implements OnInit {
       const hero = await this.heroes.loadMine();
       if (hero) {
         await Promise.all([this.resourcesSvc.loadMine(), this.loadDailyAndMaybeOpen()]);
+        this.notifications.connect();
       }
     } catch (err: unknown) {
       this.error.set((err as Error).message ?? 'Erreur inconnue');
@@ -188,6 +199,7 @@ export class CampfireComponent implements OnInit {
   }
 
   async logout(): Promise<void> {
+    this.notifications.disconnect();
     await this.auth.logout();
     await this.router.navigate(['/login']);
   }

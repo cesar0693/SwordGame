@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import {
   type MarketAssetType,
   type MarketListingType,
@@ -77,6 +78,7 @@ export class MarketController {
   }
 
   @Post('listings/:id/bid')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async bid(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,

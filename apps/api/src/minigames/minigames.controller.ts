@@ -7,6 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, JwtPayload } from '../common/current-user.decorator';
 import { HeroesService } from '../heroes/heroes.service';
 import { MinigamesService } from './minigames.service';
@@ -27,6 +28,7 @@ export class MinigamesController {
   }
 
   @Post('play')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async play(@CurrentUser() user: JwtPayload, @Body() dto: PlayMinigameDto) {
     const hero = await this.requireHero(user.sub);
     return this.minigames.play(hero.id, dto.code, dto.betGold, dto.choice);

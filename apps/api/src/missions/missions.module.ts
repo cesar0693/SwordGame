@@ -4,11 +4,19 @@ import { ItemsModule } from '../items/items.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { SpellsModule } from '../spells/spells.module';
 import { QuestsModule } from '../quests/quests.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { MissionsController } from './missions.controller';
 import { MissionsService } from './missions.service';
 
 @Module({
-  imports: [HeroesModule, ItemsModule, ResourcesModule, SpellsModule, QuestsModule],
+  imports: [
+    HeroesModule,
+    ItemsModule,
+    ResourcesModule,
+    SpellsModule,
+    QuestsModule,
+    NotificationsModule,
+  ],
   controllers: [MissionsController],
   providers: [MissionsService],
   exports: [MissionsService],

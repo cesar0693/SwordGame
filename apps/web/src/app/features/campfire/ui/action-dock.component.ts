@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
 
 export type DockAction =
   | 'profile'
@@ -13,10 +14,10 @@ export type DockAction =
 
 interface DockItem {
   id: DockAction;
-  label: string;
+  labelKey: string;
   hint: string;
   available: boolean;
-  glyph: string; // single-letter placeholder icon
+  glyph: string;
 }
 
 @Component({
@@ -89,7 +90,7 @@ interface DockItem {
           (click)="open(it)"
         >
           <span class="glyph">{{ it.glyph }}</span>
-          <span>{{ it.label }}</span>
+          <span>{{ i18n.t(it.labelKey) }}</span>
         </button>
       }
     </nav>
@@ -97,17 +98,18 @@ interface DockItem {
 })
 export class ActionDockComponent {
   readonly opened = output<DockAction>();
+  protected readonly i18n = inject(I18nService);
 
   protected readonly items: DockItem[] = [
-    { id: 'profile',   label: 'Profil',     glyph: '♦', hint: 'Stats et progression du héros', available: true },
-    { id: 'camp',      label: 'Camp',       glyph: '⌂', hint: 'Compagnons, ressources et progression', available: true },
-    { id: 'market',    label: 'Marché',     glyph: '⚖', hint: 'Acheter, vendre, enchérir', available: true },
-    { id: 'dailies',   label: 'Journalier', glyph: '☀', hint: 'Récompense de connexion quotidienne', available: true },
-    { id: 'inventory', label: 'Sac',        glyph: '▣', hint: 'Inventaire & équipement', available: true },
-    { id: 'missions',  label: 'Missions',   glyph: '▶', hint: 'Combat PvE auto',              available: true },
-    { id: 'forge',     label: 'Forge',      glyph: '⚒', hint: 'Améliorations, recettes, démantelage', available: true },
-    { id: 'spells',    label: 'Sorts',      glyph: '✦', hint: 'Sorts de classe à équiper pour le combat', available: true },
-    { id: 'arena',     label: 'Arène',      glyph: '⚔', hint: 'PvP classé Elo',                available: true },
+    { id: 'profile',   labelKey: 'dock.profile',   glyph: '♦', hint: 'Stats et progression du héros', available: true },
+    { id: 'camp',      labelKey: 'dock.camp',      glyph: '⌂', hint: 'Compagnons, ressources et progression', available: true },
+    { id: 'market',    labelKey: 'dock.market',    glyph: '⚖', hint: 'Acheter, vendre, enchérir', available: true },
+    { id: 'dailies',   labelKey: 'dock.dailies',   glyph: '☀', hint: 'Récompense de connexion quotidienne', available: true },
+    { id: 'inventory', labelKey: 'dock.inventory', glyph: '▣', hint: 'Inventaire & équipement', available: true },
+    { id: 'missions',  labelKey: 'dock.missions',  glyph: '▶', hint: 'Combat PvE auto', available: true },
+    { id: 'forge',     labelKey: 'dock.forge',     glyph: '⚒', hint: 'Améliorations, recettes, démantelage', available: true },
+    { id: 'spells',    labelKey: 'dock.spells',    glyph: '✦', hint: 'Sorts de classe à équiper pour le combat', available: true },
+    { id: 'arena',     labelKey: 'dock.arena',     glyph: '⚔', hint: 'PvP classé Elo', available: true },
   ];
 
   protected open(item: DockItem): void {

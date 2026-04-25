@@ -26,6 +26,7 @@ import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
 import { SpellsService } from '../spells/spells.service';
 import { QuestsService } from '../quests/quests.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { simulateCombat, type ConsumablePlan } from '../combat/combat.engine';
 
 type Tx = Prisma.TransactionClient;
@@ -38,6 +39,7 @@ export class PvpService {
     private readonly resources: ResourcesService,
     private readonly spells: SpellsService,
     private readonly quests: QuestsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -243,7 +245,23 @@ export class PvpService {
         await this.quests.incrementFor(attackerId, 'PVP_WIN', 1, tx);
       }
 
-      return this.matchToDto(match);
+      return { dto: this.matchToDto(match), attackerName: attacker.name, defenderId, attackerWon };
+    }).then(async ({ dto, attackerName, defenderId, attackerWon }) => {
+      // Notify the defender after commit (best-effort, non-blocking on failure).
+      try {
+        await this.notifications.pushToHero(
+          defenderId,
+          'PVP_ATTACKED',
+          attackerWon ? 'Tu as été défié et battu' : 'Tu as repoussé une attaque',
+          attackerWon
+            ? `${attackerName} t'a attaqué et a remporté le combat.`
+            : `${attackerName} t'a attaqué — tu as gagné en défense !`,
+          { matchId: dto.id },
+        );
+      } catch {
+        // never let a notification failure break a successful challenge.
+      }
+      return dto;
     });
   }
 

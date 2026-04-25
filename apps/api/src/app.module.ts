@@ -15,11 +15,19 @@ import { SpellsModule } from './spells/spells.module';
 import { PvpModule } from './pvp/pvp.module';
 import { QuestsModule } from './quests/quests.module';
 import { MinigamesModule } from './minigames/minigames.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([
+      // Default per-IP bucket: 60 requests / min. Endpoints that need
+      // tighter limits decorate with @Throttle locally.
+      { name: 'default', ttl: 60_000, limit: 60 },
+    ]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -35,6 +43,10 @@ import { HealthController } from './health.controller';
     PvpModule,
     QuestsModule,
     MinigamesModule,
+    NotificationsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
   controllers: [HealthController],
 })

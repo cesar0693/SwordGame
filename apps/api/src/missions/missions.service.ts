@@ -28,6 +28,7 @@ import { ItemsService } from '../items/items.service';
 import { ResourcesService } from '../resources/resources.service';
 import { SpellsService } from '../spells/spells.service';
 import { QuestsService } from '../quests/quests.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { simulateCombat } from '../combat/combat.engine';
 
 type Tx = Prisma.TransactionClient;
@@ -48,6 +49,7 @@ export class MissionsService {
     private readonly resources: ResourcesService,
     private readonly spells: SpellsService,
     private readonly quests: QuestsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // -----------------------------------------------------------------------
@@ -79,6 +81,18 @@ export class MissionsService {
         data: { status: 'COMPLETED' },
       });
       run.status = 'COMPLETED';
+      // Best-effort push so an open client gets a toast even before they refresh.
+      try {
+        await this.notifications.pushToHero(
+          heroId,
+          'MISSION_COMPLETED',
+          'Mission terminée',
+          'Une mission est prête à être réclamée.',
+          { runId: run.id, missionCode: run.missionCode },
+        );
+      } catch {
+        /* swallow */
+      }
     }
     return {
       runId: run.id,

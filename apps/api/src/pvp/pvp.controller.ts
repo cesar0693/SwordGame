@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, JwtPayload } from '../common/current-user.decorator';
 import { HeroesService } from '../heroes/heroes.service';
 import { PvpService } from './pvp.service';
@@ -40,6 +41,9 @@ export class PvpController {
   }
 
   @Post('challenge')
+  // The 5-min cooldown is the real gate. This bucket just prevents
+  // a flood of probes against the cooldown check itself.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async challenge(
     @CurrentUser() user: JwtPayload,
     @Body() dto: ChallengeDto,
